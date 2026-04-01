@@ -257,15 +257,13 @@ export default function ProductCatalogPage() {
                 step="0.01"
                 min="0"
                 placeholder="e.g. 125.50" 
-                defaultValue={editingProduct?.packaging_price || ""} 
+                defaultValue={editingProduct?.packaging_price?.toString() || ""} 
               />
               <p className="text-xs text-gray-500">Price per packaging unit in PHP</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category</Label>
-              <Select name="categoryId" defaultValue={
-                editingProduct ? categories.find(c => c.name === editingProduct.product_categories?.name)?.id.toString() : undefined
-              }>
+              <Select name="categoryId" defaultValue={editingProduct?.category_id?.toString() || ""}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
@@ -276,9 +274,7 @@ export default function ProductCatalogPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="brandId">Brand</Label>
-              <Select name="brandId" defaultValue={
-                editingProduct ? brands.find(b => b.name === editingProduct.brands?.name)?.id.toString() : undefined
-              }>
+              <Select name="brandId" defaultValue={editingProduct?.brand_id?.toString() || ""}>
                 <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                 <SelectContent>
                   {brands.map((b) => (
@@ -326,7 +322,7 @@ export default function ProductCatalogPage() {
                   <TableHead>Category</TableHead>
                   <TableHead>Brand</TableHead>
                   <TableHead>Packaging Price</TableHead>
-                  <TableHead>Net Weight</TableHead>
+                  <TableHead>Packaging Type</TableHead>
                   <TableHead>Total Cases</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -353,9 +349,13 @@ export default function ProductCatalogPage() {
                     <TableCell className="text-gray-500">{p.category_name ?? "—"}</TableCell>
                     <TableCell className="text-gray-500 font-medium">{p.brand_name ?? "—"}</TableCell>
                     <TableCell className="text-gray-500">
-                      {p.packaging_price ? `₱${p.packaging_price.toFixed(2)}` : "—"}
+                      {console.log("Product packaging_price:", p.packaging_price, typeof p.packaging_price)}
+                      {p.packaging_price && typeof p.packaging_price === 'number' && p.packaging_price > 0 ? 
+                        `₱${p.packaging_price.toFixed(2)}` : "—"}
                     </TableCell>
-                    <TableCell className="text-gray-500">{p.net_weight || "—"}</TableCell>
+                    <TableCell className="text-gray-500">
+                      {p.packaging_type_name || "—"}
+                    </TableCell>
                     <TableCell className="text-gray-700 font-semibold">
                       <span className={`px-2 py-1 rounded-md text-xs ${
                         p.total_cases === 0 ? 'bg-red-50 text-red-700' : 

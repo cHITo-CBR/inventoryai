@@ -63,11 +63,11 @@ export async function getRecentMovements(): Promise<MovementRow[]> {
   try {
     const rows = await query<MovementDbRow>(`
       SELECT il.id, il.quantity, il.balance, il.notes, il.created_at,
-             pv.name AS variant_name, pv.sku AS variant_sku,
+             p.name AS variant_name, CONCAT('SKU-', SUBSTRING(p.id, 1, 8)) AS variant_sku,
              imt.name AS movement_type_name, imt.direction AS movement_type_direction,
              u.full_name AS user_full_name
       FROM inventory_ledger il
-      LEFT JOIN product_variants pv ON il.variant_id = pv.id
+      LEFT JOIN products p ON il.product_id = p.id
       LEFT JOIN inventory_movement_types imt ON il.movement_type_id = imt.id
       LEFT JOIN users u ON il.recorded_by = u.id
       ORDER BY il.created_at DESC
@@ -84,7 +84,8 @@ export async function getRecentMovements(): Promise<MovementRow[]> {
       inventory_movement_types: row.movement_type_name ? { name: row.movement_type_name, direction: row.movement_type_direction! } : null,
       users: row.user_full_name ? { full_name: row.user_full_name } : null,
     }));
-  } catch {
+  } catch (error) {
+    console.error("Error fetching recent movements:", error);
     return [];
   }
 }
@@ -115,20 +116,21 @@ interface VariantDbRow extends RowDataPacket {
 
 export async function getVariantsForAdjustment(): Promise<{ id: string; name: string; sku: string | null }[]> {
   try {
+    // Since product_variants table might not exist, let's use products table instead
     const rows = await query<VariantDbRow>(`
-      SELECT pv.id, pv.name, pv.sku, p.name AS product_name
-      FROM product_variants pv
-      LEFT JOIN products p ON pv.product_id = p.id
-      WHERE pv.is_active = ?
-      ORDER BY pv.name
-    `, [fromBoolean(true)]);
+      SELECT p.id, p.name, CONCAT(p.name, ' - Standard') as variant_name, p.id as sku
+      FROM products p
+      WHERE p.is_archived = 0
+      ORDER BY p.name
+    `);
     
     return rows.map((v) => ({
       id: v.id,
-      name: v.product_name ? `${v.product_name} - ${v.name}` : v.name,
-      sku: v.sku,
+      name: v.variant_name || v.name,
+      sku: `SKU-${v.id.substring(0, 8)}`, // Generate simple SKU
     }));
-  } catch {
+  } catch (error) {
+    console.error("Error fetching variants:", error);
     return [];
   }
 }
@@ -155,10 +157,10 @@ export async function createStockAdjustment(formData: FormData) {
   }
 
   try {
-    // Get current balance for this variant
+    // Get current balance for this product (using product id instead of variant_id)
     const lastEntry = await queryOne<BalanceRow>(`
       SELECT balance FROM inventory_ledger
-      WHERE variant_id = ?
+      WHERE product_id = ?
       ORDER BY created_at DESC
       LIMIT 1
     `, [variantId]);
@@ -175,7 +177,7 @@ export async function createStockAdjustment(formData: FormData) {
 
     const ledgerId = generateUUID();
     await query(`
-      INSERT INTO inventory_ledger (id, variant_id, movement_type_id, quantity, balance, notes, recorded_by)
+      INSERT INTO inventory_ledger (id, product_id, movement_type_id, quantity, balance, notes, recorded_by)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       ledgerId,
@@ -192,6 +194,7 @@ export async function createStockAdjustment(formData: FormData) {
     revalidatePath("/inventory");
     return { success: true };
   } catch (error: any) {
+    console.error("Stock adjustment error:", error);
     return { error: error.message };
   }
 }

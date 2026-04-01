@@ -102,12 +102,17 @@ export default function AdminDashboardPage() {
             <div className="flex items-center gap-4 mt-2">
               <p className="text-green-100/70 text-xs font-bold uppercase tracking-widest flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5" />
-                Live Hub Status: <span className="text-green-400 font-black">Operational</span>
+                Live Hub Status: <span className={`font-black ${
+                  kpis?.hubStatus === 'operational' ? 'text-green-400' :
+                  kpis?.hubStatus === 'maintenance' ? 'text-yellow-400' : 'text-red-400'
+                }`}>
+                  {kpis?.hubStatus?.toUpperCase() ?? 'OFFLINE'}
+                </span>
               </p>
               <div className="w-1 h-1 rounded-full bg-white/20" />
               <p className="text-green-100/70 text-xs font-bold uppercase tracking-widest flex items-center gap-1.5">
                 <Target className="w-3.5 h-3.5 text-blue-300" />
-                Goal Efficiency: 94.2%
+                Goal Efficiency: {kpis?.goalEfficiency?.toFixed(1) ?? '0.0'}%
               </p>
             </div>
           </div>
@@ -121,24 +126,48 @@ export default function AdminDashboardPage() {
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-black text-green-100/70 uppercase tracking-widest leading-none">Total Pipeline Value</p>
-              <div className="flex items-center gap-1 text-[10px] font-black text-green-400 bg-white/10 px-1.5 py-0.5 rounded-full border border-white/5">
+              <div className={`flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-white/5 ${
+                (kpis?.pipelineGrowth ?? 0) > 0 ? 'text-green-400 bg-white/10' : 'text-gray-400 bg-white/5'
+              }`}>
                 <ArrowUpRight className="w-2.5 h-2.5" />
-                +12%
+                {kpis?.pipelineGrowth > 0 ? '+' : ''}{kpis?.pipelineGrowth ?? 0}%
               </div>
             </div>
-            <p className="text-xl font-black tracking-tight text-white">₱2.4M</p>
+            <p className="text-xl font-black tracking-tight text-white">
+              ₱{(kpis?.totalPipelineValue ?? 0) >= 1000000 
+                ? ((kpis?.totalPipelineValue ?? 0) / 1000000).toFixed(1) + 'M'
+                : (kpis?.totalPipelineValue ?? 0) >= 1000 
+                ? ((kpis?.totalPipelineValue ?? 0) / 1000).toFixed(1) + 'K'
+                : (kpis?.totalPipelineValue ?? 0).toLocaleString('en-PH')
+              }
+            </p>
             <div className="w-full h-1 bg-white/10 rounded-full mt-3 overflow-hidden">
-              <div className="h-full bg-green-400 rounded-full w-[72%] transition-all" />
+              <div 
+                className="h-full bg-green-400 rounded-full transition-all" 
+                style={{ width: `${Math.min(100, Math.max(10, (kpis?.goalEfficiency ?? 0)))}%` }}
+              />
             </div>
           </div>
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-black text-green-100/70 uppercase tracking-widest leading-none">Strategic Growth</p>
-              <Zap className="w-3 h-3 text-green-400" />
+              <Zap className={`w-3 h-3 ${
+                kpis?.strategicGrowthStatus === 'Accelerated' ? 'text-green-400' :
+                kpis?.strategicGrowthStatus === 'Steady' ? 'text-blue-400' :
+                kpis?.strategicGrowthStatus === 'Moderate' ? 'text-yellow-400' : 'text-gray-400'
+              }`} />
             </div>
-            <p className="text-xl font-black tracking-tight text-white">Accelerated</p>
+            <p className="text-xl font-black tracking-tight text-white">
+              {kpis?.strategicGrowthStatus ?? 'No Data'}
+            </p>
             <div className="w-full h-1 bg-white/10 rounded-full mt-3 overflow-hidden">
-              <div className="h-full bg-blue-400 rounded-full w-[85%] transition-all" />
+              <div 
+                className={`h-full rounded-full transition-all ${
+                  kpis?.strategicGrowthStatus === 'Accelerated' ? 'bg-green-400 w-[85%]' :
+                  kpis?.strategicGrowthStatus === 'Steady' ? 'bg-blue-400 w-[65%]' :
+                  kpis?.strategicGrowthStatus === 'Moderate' ? 'bg-yellow-400 w-[35%]' : 'bg-gray-400 w-[10%]'
+                }`}
+              />
             </div>
           </div>
         </div>

@@ -10,7 +10,7 @@ export interface ProductRow {
   description: string | null;
   image_url: string | null;
   total_cases: number;
-  packaging_price: number | null; // Changed from total_packaging to packaging_price (money)
+  packaging_price: number | null; // Ensure this is number type
   is_active: boolean;
   created_at: string;
   category_id: number | null;
@@ -18,6 +18,7 @@ export interface ProductRow {
   packaging_id: number | null;
   category_name?: string | null;
   brand_name?: string | null;
+  packaging_type_name?: string | null;
   net_weight: string | null;
 }
 
@@ -27,6 +28,7 @@ interface ProductRowDB extends RowDataPacket {
   description: string | null;
   image_url: string | null;
   total_cases: number;
+  packaging_price: string | null; // Database returns as string, will convert to number
   is_active: number;
   is_archived: number;
   created_at: string;
@@ -35,7 +37,7 @@ interface ProductRowDB extends RowDataPacket {
   packaging_id: number | null;
   category_name: string | null;
   brand_name: string | null;
-  total_packaging: string | null;
+  packaging_type_name: string | null;
   net_weight: string | null;
 }
 
@@ -72,7 +74,8 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
              pc.name as category_name, 
              b.name as brand_name,
              pt.name as packaging_type_name,
-             pt.description as net_weight
+             pt.description as net_weight,
+             p.packaging_price
       FROM products p
       LEFT JOIN product_categories pc ON p.category_id = pc.id
       LEFT JOIN brands b ON p.brand_id = b.id
@@ -90,7 +93,19 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
     sql += " ORDER BY p.created_at DESC";
 
     const products = await query<ProductRowDB>(sql, params);
-    return products.map(p => ({ ...p, is_active: toBoolean(p.is_active) }));
+    
+    console.log("Raw products from database:", products.length > 0 ? {
+      id: products[0].id,
+      name: products[0].name,
+      packaging_price: products[0].packaging_price,
+      packaging_price_type: typeof products[0].packaging_price
+    } : "No products");
+    
+    return products.map(p => ({ 
+      ...p, 
+      is_active: toBoolean(p.is_active),
+      packaging_price: p.packaging_price ? Number(p.packaging_price) : null
+    }));
   } catch (error) {
     console.error("Error fetching products:", error);
     return [];
@@ -104,7 +119,6 @@ export async function createProduct(formData: FormData) {
   const brandId = formData.get("brandId") as string;
   const packagingId = formData.get("packagingId") as string;
   const totalCases = formData.get("totalCases") as string;
-  const totalPackaging = formData.get("totalPackaging") as string;
   const packagingPrice = formData.get("packagingPrice") as string;
   const imageUrl = formData.get("imageUrl") as string;
   const variantsJSON = formData.get("variants") as string;
@@ -113,7 +127,13 @@ export async function createProduct(formData: FormData) {
 
   try {
     const productId = generateUUID();
+    
+    console.log("Form data received:");
+    console.log("- packagingPrice:", packagingPrice);
+    console.log("- packagingPrice parsed:", packagingPrice ? parseFloat(packagingPrice) : 0.00);
 
+    console.log("Creating product with packaging price:", packagingPrice);
+    
     await insert(
       `INSERT INTO products (id, name, description, image_url, total_cases, packaging_price, category_id, brand_id, packaging_id, is_active, is_archived)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -131,6 +151,8 @@ export async function createProduct(formData: FormData) {
         fromBoolean(false)
       ]
     );
+
+    console.log("Product created successfully with ID:", productId);
 
     // Handle variants
     let variants: ProductVariantRow[] = [];
@@ -241,21 +263,25 @@ export async function updateProduct(id: string, formData: FormData) {
   const brandId = formData.get("brandId") as string;
   const packagingId = formData.get("packagingId") as string;
   const totalCases = formData.get("totalCases") as string;
+  const packagingPrice = formData.get("packagingPrice") as string;
   const imageUrl = formData.get("imageUrl") as string;
   const variantsJSON = formData.get("variants") as string;
 
   if (!name) return { error: "Product name is required." };
 
   try {
+    console.log("Updating product with packaging price:", packagingPrice);
+    
     await update(
       `UPDATE products 
-       SET name = ?, description = ?, image_url = ?, total_cases = ?, category_id = ?, brand_id = ?, packaging_id = ?
+       SET name = ?, description = ?, image_url = ?, total_cases = ?, packaging_price = ?, category_id = ?, brand_id = ?, packaging_id = ?
        WHERE id = ?`,
       [
         name,
         description || null,
         imageUrl || null,
         totalCases ? parseInt(totalCases) : 0,
+        packagingPrice ? parseFloat(packagingPrice) : 0.00,
         categoryId ? parseInt(categoryId) : null,
         brandId ? parseInt(brandId) : null,
         packagingId ? parseInt(packagingId) : null,

@@ -86,5 +86,64 @@ INSERT IGNORE INTO `packaging_types` (`name`, `description`, `items_per_case`) V
 ('Carton of 36', '200g', 36);
 
 -- =====================================================
+-- 8. Create inventory_movement_types table
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `inventory_movement_types` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) NOT NULL,
+  `direction` ENUM('in', 'out') NOT NULL,
+  `description` TEXT,
+  `is_active` TINYINT(1) DEFAULT 1,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- 9. Create inventory_ledger table  
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `inventory_ledger` (
+  `id` VARCHAR(36) NOT NULL,
+  `product_id` VARCHAR(36),
+  `movement_type_id` INT,
+  `quantity` INT NOT NULL,
+  `balance` INT NOT NULL DEFAULT 0,
+  `notes` TEXT,
+  `recorded_by` VARCHAR(36),
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_product_created` (`product_id`, `created_at`),
+  INDEX `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- 10. Create product_variants table
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `product_variants` (
+  `id` VARCHAR(36) NOT NULL,
+  `product_id` VARCHAR(36),
+  `name` VARCHAR(255) NOT NULL,
+  `sku` VARCHAR(100),
+  `unit_price` DECIMAL(10,2) DEFAULT 0.00,
+  `packaging_id` INT,
+  `unit_id` INT,
+  `is_active` TINYINT(1) DEFAULT 1,
+  `is_archived` TINYINT(1) DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_sku` (`sku`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- 11. Insert sample movement types
+-- =====================================================
+INSERT IGNORE INTO `inventory_movement_types` (`name`, `direction`, `description`) VALUES 
+('Stock In', 'in', 'Inventory received/added'),
+('Stock Out', 'out', 'Inventory sold/removed'),
+('Adjustment In', 'in', 'Positive stock adjustment'),
+('Adjustment Out', 'out', 'Negative stock adjustment'),
+('Return', 'in', 'Returned inventory'),
+('Damage', 'out', 'Damaged inventory removal');
+
+-- =====================================================
 -- Done! All catalog tables should now work properly.
 -- =====================================================
