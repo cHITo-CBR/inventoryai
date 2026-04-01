@@ -190,8 +190,8 @@ export default function AdminDashboardPage() {
                       <TableCell className="text-right font-bold">₱{tx.total_amount.toLocaleString("en-PH", { minimumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-right">
                         <span className={`text-xs font-medium px-2 py-1 rounded-md ${tx.status === "completed" ? "bg-green-50 text-green-700" :
-                            tx.status === "pending" ? "bg-yellow-50 text-yellow-700" :
-                              "bg-gray-100 text-gray-700"
+                          tx.status === "pending" ? "bg-yellow-50 text-yellow-700" :
+                            "bg-gray-100 text-gray-700"
                           }`}>
                           {tx.status.charAt(0).toUpperCase() + tx.status.slice(1)}
                         </span>

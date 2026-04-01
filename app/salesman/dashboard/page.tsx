@@ -102,7 +102,7 @@ export default function SalesmanDashboardPage() {
             <Image src="/seller-hero.png" alt="Seller" width={48} height={48} className="w-full h-full object-cover" />
           </div>
         </div>
-        
+
         {/* Daily Target */}
         <div className="relative z-10 mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">

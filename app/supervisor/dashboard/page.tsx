@@ -194,8 +194,8 @@ export default function SupervisorDashboardPage() {
                 {allActivity.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/50 hover:bg-gray-50 transition-colors">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.type === "visit" ? "bg-teal-50 text-teal-600" :
-                        item.type === "callsheet" ? "bg-amber-50 text-amber-600" :
-                          "bg-purple-50 text-purple-600"
+                      item.type === "callsheet" ? "bg-amber-50 text-amber-600" :
+                        "bg-purple-50 text-purple-600"
                       }`}>
                       {item.type === "visit" ? <MapPin className="w-4 h-4" /> :
                         item.type === "callsheet" ? <FileText className="w-4 h-4" /> :

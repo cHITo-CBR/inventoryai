@@ -110,11 +110,11 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
       const isActive = pathname === url || pathname.startsWith(url + "/");
       return (
         <SidebarMenuItem key={item.title}>
-          <SidebarMenuButton
-            asChild
-            isActive={isActive}
-            className="font-medium text-gray-700 data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
-          >
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
+                    >
             <Link href={url}>
               <item.icon className="w-5 h-5 mr-1" />
               <span>{item.title}</span>
@@ -125,7 +125,7 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
     });
 
   return (
-    <Sidebar variant="inset" className="border-r border-gray-200">
+    <Sidebar className="border-r border-gray-200">
       <SidebarHeader className="bg-white px-4 py-4 md:py-6">
         <Link href={prefixed("/dashboard")} className="flex items-center gap-2">
           <Image src="/logo.png" alt="Century Pacific Food" width={140} height={32} className="h-8 w-auto object-contain" />
@@ -153,7 +153,7 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className="font-medium text-gray-700 data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
+                      className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
                     >
                       <Link href={url}>
                         <item.icon className="w-5 h-5 mr-1" />
@@ -207,7 +207,7 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
                       <SidebarMenuButton
                         asChild
                         isActive={isActive}
-                        className="font-medium text-gray-700 data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
+                        className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
                       >
                         <Link href={url}>
                           <item.icon className="w-5 h-5 mr-1" />
