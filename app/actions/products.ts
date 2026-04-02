@@ -3,6 +3,7 @@
 import { query, queryOne, insert, update, remove, transaction, generateUUID, fromBoolean, toBoolean, buildLikeSearch } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 import { RowDataPacket } from "mysql2/promise";
+import { uploadImageFromBase64, deleteFromCloudinary } from "./cloudinary";
 
 export interface ProductRow {
   id: string;
@@ -121,12 +122,27 @@ export async function createProduct(formData: FormData) {
   const totalCases = formData.get("totalCases") as string;
   const packagingPrice = formData.get("packagingPrice") as string;
   const imageUrl = formData.get("imageUrl") as string;
+  const imageFile = formData.get("imageFile") as string; // Base64 or existing URL
   const variantsJSON = formData.get("variants") as string;
 
   if (!name) return { error: "Product name is required." };
 
   try {
     const productId = generateUUID();
+    
+    // Handle image upload to Cloudinary if base64 image is provided
+    let finalImageUrl = imageUrl || null;
+    if (imageFile && imageFile.startsWith("data:image")) {
+      console.log("Uploading image to Cloudinary...");
+      const uploadResult = await uploadImageFromBase64(imageFile, "products");
+      if (uploadResult.success && uploadResult.url) {
+        finalImageUrl = uploadResult.url;
+        console.log("Image uploaded to Cloudinary:", finalImageUrl);
+      } else {
+        console.error("Cloudinary upload failed:", uploadResult.error);
+        // Continue with product creation even if image upload fails
+      }
+    }
     
     console.log("Form data received:");
     console.log("- packagingPrice:", packagingPrice);
@@ -141,7 +157,7 @@ export async function createProduct(formData: FormData) {
         productId,
         name,
         description || null,
-        imageUrl || null,
+        finalImageUrl,
         totalCases ? parseInt(totalCases) : 0,
         packagingPrice ? parseFloat(packagingPrice) : 0.00,
         categoryId ? parseInt(categoryId) : null,

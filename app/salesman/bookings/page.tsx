@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag, Plus, ChevronRight, Clock, CheckCircle, XCircle, Truck } from "lucide-react";
 import Link from "next/link";
-import { getCurrentUser } from "@/app/actions/auth";
-import { supabase } from "@/lib/supabase";
+import { getSalesmanBookings, type BookingRow } from "@/app/actions/bookings";
 
 const statusConfig: Record<string, { icon: any; color: string; bg: string }> = {
   pending: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
@@ -15,24 +14,22 @@ const statusConfig: Record<string, { icon: any; color: string; bg: string }> = {
 };
 
 export default function SalesmanBookingsPage() {
-  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      const session = await getCurrentUser();
-      const userId = session?.user?.id;
-      if (userId) {
-        const { data } = await supabase
-          .from("sales_transactions")
-          .select("*, customers:customer_id (store_name)")
-          .eq("salesman_id", userId)
-          .order("created_at", { ascending: false });
-        setBookings(data || []);
+    async function loadBookings() {
+      try {
+        const data = await getSalesmanBookings();
+        setBookings(data);
+      } catch (error) {
+        console.error("Error loading bookings:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
-    load();
+
+    loadBookings();
   }, []);
 
   if (loading) {
@@ -78,7 +75,7 @@ export default function SalesmanBookingsPage() {
                     <StatusIcon className={`w-5 h-5 ${status.color}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-gray-900 truncate">{b.customers?.store_name || "Unknown"}</h3>
+                    <h3 className="text-sm font-bold text-gray-900 truncate">{b.customer_store_name || "Unknown"}</h3>
                     <p className="text-[10px] text-gray-400 font-medium">
                       {new Date(b.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </p>

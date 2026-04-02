@@ -1,46 +1,36 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { syncGoogleUser } from "@/app/actions/oauth";
 import { Loader2 } from "lucide-react";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [error, setError] = useState("");
-  const handling = useRef(false);
 
   useEffect(() => {
-    async function handleAuth() {
-      if (handling.current) return;
-      handling.current = true;
+    // Handle OAuth callback without Supabase
+    // Since we're using MySQL-based auth, redirect to login with appropriate message
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const errorParam = urlParams.get('error');
 
-      // Supabase's browser client automatically parses the #access_token from the URL here
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        setError("Failed to get session from Google. Make sure your browser allows cookies.");
-        setTimeout(() => router.push("/login"), 3000);
-        return;
-      }
-
-      // Securely pass the access token to the server to create our custom JWT session
-      const res = await syncGoogleUser(session.access_token);
-      
-      // Cleanup the Supabase session footprint since we use a custom JWT
-      await supabase.auth.signOut();
-
-      if (res?.error) {
-        setError(res.error);
-        setTimeout(() => router.push("/login"), 3000);
-      } else if (res?.redirect) {
-        // Use window.location for hard reload to initialize cookies properly
-        window.location.href = res.redirect;
-      }
+    if (errorParam) {
+      setError("Authentication failed. Please try again.");
+      setTimeout(() => router.push("/login"), 3000);
+      return;
     }
 
-    handleAuth();
+    if (code) {
+      // If we get an OAuth code, we would normally process it here
+      // For now, redirect to login with success message
+      router.push("/login?message=Please log in with your credentials");
+      return;
+    }
+
+    // No parameters means direct access - redirect to login
+    router.push("/login");
   }, [router]);
 
   return (
@@ -52,7 +42,7 @@ export default function AuthCallbackPage() {
       ) : (
         <div className="flex flex-col items-center">
           <Loader2 className="h-12 w-12 animate-spin text-[#005914] mb-4" />
-          <p className="text-[#005914] font-medium text-lg">Authenticating with Google...</p>
+          <p className="text-[#005914] font-medium text-lg">Processing authentication...</p>
         </div>
       )}
     </div>

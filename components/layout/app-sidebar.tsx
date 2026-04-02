@@ -20,6 +20,7 @@ import {
   ShoppingBag,
   Sparkles,
   Tags,
+  Target,
   Users,
   Bell,
   Archive
@@ -39,9 +40,11 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { Scale } from "lucide-react";
 import { getCurrentUser } from "@/app/actions/auth";
+import { getSidebarCounts, SidebarCounts } from "@/app/actions/sidebar";
 
 interface AppSidebarProps {
   basePath?: string; // e.g. "/admin", "/supervisor"
@@ -53,27 +56,28 @@ const navItems = [
   { title: "Account Approvals", path: "/approvals", icon: CheckSquare, adminOnly: true },
   { title: "User Management", path: "/users", icon: ShieldAlert, adminOnly: true },
   { title: "Team Monitoring", path: "/team", icon: Users, supervisorOnly: true },
-  { title: "Customers", path: "/customers", icon: Users },
+  { title: "Customers", path: "/customers", icon: Users, countKey: "customers" as const },
 ];
 
 const catalogItems = [
-  { title: "Products", path: "/catalog/products", icon: Package },
-  { title: "Categories", path: "/catalog/categories", icon: Box },
-  { title: "Brands", path: "/catalog/brands", icon: Tags },
-  { title: "Units", path: "/catalog/units", icon: Scale },
-  { title: "Packaging Types", path: "/catalog/packaging", icon: Box },
+  { title: "Products", path: "/catalog/products", icon: Package, countKey: "products" as const },
+  { title: "Categories", path: "/catalog/categories", icon: Box, adminOnly: true },
+  { title: "Brands", path: "/catalog/brands", icon: Tags, adminOnly: true },
+  { title: "Units", path: "/catalog/units", icon: Scale, adminOnly: true },
+  { title: "Packaging Types", path: "/catalog/packaging", icon: Box, adminOnly: true },
 ];
 
 const operationsItems = [
-  { title: "Inventory", path: "/inventory", icon: ClipboardList },
-  { title: "Sales Transactions", path: "/sales", icon: ShoppingCart },
-  { title: "Store Visits", path: "/visits", icon: MapPin },
+  { title: "Inventory", path: "/inventory", icon: ClipboardList, countKey: "inventory" as const },
+  { title: "Sales Transactions", path: "/sales", icon: ShoppingCart, countKey: "sales" as const },
+  { title: "Quotas", path: "/quotas", icon: Target, adminOnly: true, countKey: "quotas" as const },
+  { title: "Store Visits", path: "/visits", icon: MapPin, countKey: "visits" as const },
 ];
 
 const fieldSalesItems = [
-  { title: "Callsheets", path: "/callsheets", icon: FileText },
-  { title: "Buyer Requests", path: "/buyer-requests", icon: Package2 },
-  { title: "Bookings", path: "/bookings", icon: ShoppingBag },
+  { title: "Callsheets", path: "/callsheets", icon: FileText, countKey: "callsheets" as const },
+  { title: "Buyer Requests", path: "/buyer-requests", icon: Package2, countKey: "buyerRequests" as const },
+  { title: "Bookings", path: "/bookings", icon: ShoppingBag, countKey: "bookings" as const },
 ];
 
 const analyticsItems = [
@@ -82,7 +86,7 @@ const analyticsItems = [
 ];
 
 const systemItems = [
-  { title: "Notifications", path: "/notifications", icon: Bell },
+  { title: "Notifications", path: "/notifications", icon: Bell, countKey: "notifications" as const },
   { title: "Audit Logs", path: "/audit", icon: FileText, adminOnly: true },
   { title: "Archives", path: "/archives", icon: Archive, adminOnly: true },
   { title: "Settings", path: "/settings", icon: Settings },
@@ -92,6 +96,7 @@ const systemItems = [
 export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
   const pathname = usePathname();
   const [user, setUser] = React.useState<{ full_name?: string; email?: string; role?: string } | null>(null);
+  const [counts, setCounts] = React.useState<SidebarCounts | null>(null);
 
   React.useEffect(() => {
     getCurrentUser().then((session) => {
@@ -99,30 +104,56 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
         setUser(session.user);
       }
     });
+    
+    // Fetch sidebar counts
+    getSidebarCounts().then(setCounts);
+    
+    // Refresh counts every 30 seconds
+    const interval = setInterval(() => {
+      getSidebarCounts().then(setCounts);
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Helper to prefix all paths with the basePath
   const prefixed = (path: string) => `${basePath}${path}`;
 
   const renderMenuItems = (items: typeof navItems) =>
-    items.map((item) => {
-      const url = prefixed(item.path);
-      const isActive = pathname === url || pathname.startsWith(url + "/");
-      return (
-        <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
-                    >
-            <Link href={url}>
-              <item.icon className="w-5 h-5 mr-1" />
-              <span>{item.title}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    });
+    items
+      .filter((item) => {
+        if (user?.role !== "admin" && (item as any).adminOnly) return false;
+        if (user?.role !== "supervisor" && (item as any).supervisorOnly) return false;
+        return true;
+      })
+      .map((item) => {
+        const url = prefixed(item.path);
+        const isActive = pathname === url || pathname.startsWith(url + "/");
+        const countKey = (item as any).countKey as keyof SidebarCounts | undefined;
+        const count = countKey && counts ? counts[countKey] : null;
+        
+        return (
+          <SidebarMenuItem key={item.title}>
+            <SidebarMenuButton
+              asChild
+              isActive={isActive}
+              className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
+            >
+              <Link href={url} className="flex items-center justify-between w-full">
+                <span className="flex items-center">
+                  <item.icon className="w-5 h-5 mr-2" />
+                  <span>{item.title}</span>
+                </span>
+                {count !== null && count > 0 && (
+                  <Badge variant="secondary" className="ml-auto bg-[#005914]/10 text-[#005914] text-xs px-2 py-0.5">
+                    {count}
+                  </Badge>
+                )}
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        );
+      });
 
   return (
     <Sidebar className="border-r border-gray-200">
@@ -148,6 +179,9 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
               .map((item) => {
                 const url = prefixed(item.path);
                 const isActive = pathname === url || pathname.startsWith(url + "/");
+                const countKey = (item as any).countKey as keyof SidebarCounts | undefined;
+                const count = countKey && counts ? counts[countKey] : null;
+                
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -155,9 +189,16 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
                       isActive={isActive}
                       className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
                     >
-                      <Link href={url}>
-                        <item.icon className="w-5 h-5 mr-1" />
-                        <span>{item.title}</span>
+                      <Link href={url} className="flex items-center justify-between w-full">
+                        <span className="flex items-center">
+                          <item.icon className="w-5 h-5 mr-2" />
+                          <span>{item.title}</span>
+                        </span>
+                        {count !== null && count > 0 && (
+                          <Badge variant="secondary" className="ml-auto bg-[#005914]/10 text-[#005914] text-xs px-2 py-0.5">
+                            {count}
+                          </Badge>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -202,6 +243,9 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
                 .map((item) => {
                   const url = prefixed(item.path);
                   const isActive = pathname === url || pathname.startsWith(url + "/");
+                  const countKey = (item as any).countKey as keyof SidebarCounts | undefined;
+                  const count = countKey && counts ? counts[countKey] : null;
+                  
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
@@ -209,9 +253,16 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
                         isActive={isActive}
                         className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
                       >
-                        <Link href={url}>
-                          <item.icon className="w-5 h-5 mr-1" />
-                          <span>{item.title}</span>
+                        <Link href={url} className="flex items-center justify-between w-full">
+                          <span className="flex items-center">
+                            <item.icon className="w-5 h-5 mr-2" />
+                            <span>{item.title}</span>
+                          </span>
+                          {count !== null && count > 0 && (
+                            <Badge variant="secondary" className="ml-auto bg-[#005914]/10 text-[#005914] text-xs px-2 py-0.5">
+                              {count}
+                            </Badge>
+                          )}
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
