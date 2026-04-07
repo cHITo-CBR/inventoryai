@@ -115,7 +115,6 @@ export default function PackagingTypesPage() {
               <TableHeader className="bg-gray-50/50">
                 <TableRow>
                   <TableHead>Packaging</TableHead>
-                  <TableHead>Items Per Case</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -125,7 +124,6 @@ export default function PackagingTypesPage() {
                     <TableCell className="font-medium text-gray-900">
                       {p.name}{p.description ? ` - ${p.description}` : ''}
                     </TableCell>
-                    <TableCell className="text-gray-700 font-medium">{p.items_per_case}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => openEditDialog(p)}>

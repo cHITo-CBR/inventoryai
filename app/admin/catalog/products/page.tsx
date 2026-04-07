@@ -223,18 +223,15 @@ export default function ProductCatalogPage() {
                 </div>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="packagingId">Packaging & Weight</Label>
-              <Select name="packagingId" defaultValue={editingProduct?.packaging_id?.toString() || ""}>
-                <SelectTrigger><SelectValue placeholder="Select packaging" /></SelectTrigger>
-                <SelectContent>
-                  {packagingTypes.map((pkg) => (
-                    <SelectItem key={pkg.id} value={String(pkg.id)}>
-                      {pkg.name}{pkg.description ? ` - ${pkg.description}` : ''} ({pkg.items_per_case} items/case)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="itemsPerCase">Packing (per case)</Label>
+                <Input id="itemsPerCase" name="itemsPerCase" type="number" placeholder="e.g. 48" defaultValue={editingProduct?.items_per_case || ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="netWeight">Size (Net Weight)</Label>
+                <Input id="netWeight" name="netWeight" placeholder="e.g. 155g" defaultValue={editingProduct?.net_weight || ""} />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="totalCases">Total Cases</Label>
@@ -353,8 +350,8 @@ export default function ProductCatalogPage() {
                       {p.packaging_price && typeof p.packaging_price === 'number' && p.packaging_price > 0 ? 
                         `₱${p.packaging_price.toFixed(2)}` : "—"}
                     </TableCell>
-                    <TableCell className="text-gray-500">
-                      {p.packaging_type_name || "—"}
+                    <TableCell className="text-gray-500 font-medium">
+                      {p.items_per_case || p.net_weight ? `${p.items_per_case || ''}${p.items_per_case && p.net_weight ? ' - ' : ''}${p.net_weight || ''}` : "—"}
                     </TableCell>
                     <TableCell className="text-gray-700 font-semibold">
                       <span className={`px-2 py-1 rounded-md text-xs ${

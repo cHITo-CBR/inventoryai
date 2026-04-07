@@ -357,7 +357,6 @@ export interface PackagingRow {
   id: number; 
   name: string; 
   description: string | null; 
-  items_per_case: number;
   created_at: string; 
   is_archived: boolean; 
 }
@@ -366,7 +365,6 @@ interface PackagingRowDB extends RowDataPacket {
   id: number;
   name: string;
   description: string | null;
-  items_per_case: number;
   created_at: string;
   is_archived: number;
 }
