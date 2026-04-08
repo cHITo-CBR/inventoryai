@@ -170,35 +170,7 @@ CREATE TABLE IF NOT EXISTS `store_visits` (
   CONSTRAINT `fk_visits_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ----------------------------
--- Table structure for callsheets
--- ----------------------------
-CREATE TABLE IF NOT EXISTS `callsheets` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `salesman_id` VARCHAR(36) NOT NULL,
-  `customer_id` INT NOT NULL,
-  `status` ENUM('submitted', 'approved', 'rejected', 'cancelled') DEFAULT 'submitted',
-  `remarks` TEXT,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  CONSTRAINT `fk_callsheets_salesman` FOREIGN KEY (`salesman_id`) REFERENCES `users` (`id`),
-  CONSTRAINT `fk_callsheets_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- ----------------------------
--- Table structure for callsheet_items
--- ----------------------------
-CREATE TABLE IF NOT EXISTS `callsheet_items` (
-  `id` INT NOT NULL AUTO_INCREMENT,
-  `callsheet_id` INT NOT NULL,
-  `product_id` VARCHAR(36) NOT NULL,
-  `current_stock` INT DEFAULT 0,
-  `order_quantity` INT DEFAULT 0,
-  PRIMARY KEY (`id`),
-  CONSTRAINT `fk_items_callsheet` FOREIGN KEY (`callsheet_id`) REFERENCES `callsheets` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_items_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ----------------------------
 -- Table structure for buyer_requests

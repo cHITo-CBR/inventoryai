@@ -8,7 +8,6 @@ export interface SidebarCounts {
   sales: number;
   quotas: number;
   visits: number;
-  callsheets: number;
   buyerRequests: number;
   bookings: number;
   notifications: number;
@@ -23,7 +22,6 @@ export async function getSidebarCounts(): Promise<SidebarCounts> {
       sales,
       quotas,
       visits,
-      callsheets,
       buyerRequests,
       bookings,
       notifications
@@ -34,7 +32,6 @@ export async function getSidebarCounts(): Promise<SidebarCounts> {
       query<any>("SELECT COUNT(*) as count FROM sales_transactions").then(r => r[0]?.count || 0),
       query<any>("SELECT COUNT(*) as count FROM salesman_quotas WHERE status = 'ongoing'").then(r => r[0]?.count || 0),
       query<any>("SELECT COUNT(*) as count FROM store_visits").then(r => r[0]?.count || 0).catch(() => 0),
-      query<any>("SELECT COUNT(*) as count FROM callsheets").then(r => r[0]?.count || 0).catch(() => 0),
       query<any>("SELECT COUNT(*) as count FROM buyer_requests WHERE status = 'pending'").then(r => r[0]?.count || 0).catch(() => 0),
       query<any>("SELECT COUNT(*) as count FROM bookings WHERE status = 'pending'").then(r => r[0]?.count || 0).catch(() => 0),
       query<any>("SELECT COUNT(*) as count FROM notifications WHERE is_read = 0").then(r => r[0]?.count || 0).catch(() => 0),
@@ -47,7 +44,6 @@ export async function getSidebarCounts(): Promise<SidebarCounts> {
       sales: Number(sales),
       quotas: Number(quotas),
       visits: Number(visits),
-      callsheets: Number(callsheets),
       buyerRequests: Number(buyerRequests),
       bookings: Number(bookings),
       notifications: Number(notifications),
@@ -61,7 +57,6 @@ export async function getSidebarCounts(): Promise<SidebarCounts> {
       sales: 0,
       quotas: 0,
       visits: 0,
-      callsheets: 0,
       buyerRequests: 0,
       bookings: 0,
       notifications: 0,

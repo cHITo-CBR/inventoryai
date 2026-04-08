@@ -121,26 +121,6 @@ CREATE TABLE IF NOT EXISTS store_visits (
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
--- Callsheets
-CREATE TABLE IF NOT EXISTS callsheets (
-  id SERIAL PRIMARY KEY,
-  salesman_id UUID NOT NULL REFERENCES users(id),
-  customer_id INT NOT NULL REFERENCES customers(id),
-  status TEXT CHECK (status IN ('submitted', 'approved', 'rejected', 'cancelled')) DEFAULT 'submitted',
-  remarks TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
--- Callsheet Items
-CREATE TABLE IF NOT EXISTS callsheet_items (
-  id SERIAL PRIMARY KEY,
-  callsheet_id INT NOT NULL REFERENCES callsheets(id) ON DELETE CASCADE,
-  product_id UUID NOT NULL REFERENCES products(id),
-  current_stock INT DEFAULT 0,
-  order_quantity INT DEFAULT 0
-);
-
 -- Buyer Requests
 CREATE TABLE IF NOT EXISTS buyer_requests (
   id SERIAL PRIMARY KEY,

@@ -9,7 +9,6 @@ import {
   CheckSquare,
   ClipboardList,
   FileText,
-  Home,
   LayoutDashboard,
   MapPin,
   Package,
@@ -23,34 +22,30 @@ import {
   Target,
   Users,
   Bell,
-  Archive
+  Archive,
+  Scale,
+  ChevronDown
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  SidebarHeader
 } from "@/components/ui/sidebar";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import { Scale } from "lucide-react";
 import { getCurrentUser } from "@/app/actions/auth";
 import { getSidebarCounts, SidebarCounts } from "@/app/actions/sidebar";
+import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
-  basePath?: string; // e.g. "/admin", "/supervisor"
+  basePath?: string; 
 }
 
-// Navigation items defined with relative paths (no leading prefix)
 const navItems = [
   { title: "Overview", path: "/dashboard", icon: LayoutDashboard },
   { title: "Account Approvals", path: "/approvals", icon: CheckSquare, adminOnly: true },
@@ -75,7 +70,6 @@ const operationsItems = [
 ];
 
 const fieldSalesItems = [
-  { title: "Callsheets", path: "/callsheets", icon: FileText, countKey: "callsheets" as const },
   { title: "Buyer Requests", path: "/buyer-requests", icon: Package2, countKey: "buyerRequests" as const },
   { title: "Bookings", path: "/bookings", icon: ShoppingBag, countKey: "bookings" as const },
 ];
@@ -93,10 +87,23 @@ const systemItems = [
   { title: "Profile", path: "/profile", icon: Users, supervisorOnly: true },
 ];
 
+const getSectionFromPath = (path: string): string => {
+  if (path.includes("/catalog")) return "Product Catalog";
+  if (path.includes("/inventory") || path.includes("/sales") || path.includes("/quotas") || path.includes("/visits")) return "Operations";
+  if (path.includes("/buyer-requests") || path.includes("/bookings")) return "Field Sales";
+  if (path.includes("/reports") || path.includes("/notifications") || path.includes("/audit") || path.includes("/archives") || path.includes("/settings") || path.includes("/profile")) return "Analytics & System";
+  return "Main";
+};
+
 export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
   const pathname = usePathname();
   const [user, setUser] = React.useState<{ full_name?: string; email?: string; role?: string } | null>(null);
   const [counts, setCounts] = React.useState<SidebarCounts | null>(null);
+  const [activeSection, setActiveSection] = React.useState<string>("Main");
+
+  React.useEffect(() => {
+    setActiveSection(getSectionFromPath(pathname));
+  }, [pathname]);
 
   React.useEffect(() => {
     getCurrentUser().then((session) => {
@@ -105,10 +112,8 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
       }
     });
     
-    // Fetch sidebar counts
     getSidebarCounts().then(setCounts);
     
-    // Refresh counts every 30 seconds
     const interval = setInterval(() => {
       getSidebarCounts().then(setCounts);
     }, 30000);
@@ -116,67 +121,59 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Helper to prefix all paths with the basePath
   const prefixed = (path: string) => `${basePath}${path}`;
 
-  const renderMenuItems = (items: typeof navItems) =>
-    items
-      .filter((item) => {
-        if (user?.role !== "admin" && (item as any).adminOnly) return false;
-        if (user?.role !== "supervisor" && (item as any).supervisorOnly) return false;
-        return true;
-      })
-      .map((item) => {
-        const url = prefixed(item.path);
-        const isActive = pathname === url || pathname.startsWith(url + "/");
-        const countKey = (item as any).countKey as keyof SidebarCounts | undefined;
-        const count = countKey && counts ? counts[countKey] : null;
-        
-        return (
-          <SidebarMenuItem key={item.title}>
-            <SidebarMenuButton
-              asChild
-              isActive={isActive}
-              className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
-            >
-              <Link href={url} className="flex items-center justify-between w-full">
-                <span className="flex items-center">
-                  <item.icon className="w-5 h-5 mr-2" />
-                  <span>{item.title}</span>
-                </span>
-                {count !== null && count > 0 && (
-                  <Badge variant="secondary" className="ml-auto bg-[#005914]/10 text-[#005914] text-xs px-2 py-0.5">
-                    {count}
-                  </Badge>
-                )}
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        );
-      });
+  const sidebarSections = [
+    { title: "Main", items: navItems },
+    { title: "Product Catalog", items: catalogItems },
+    { title: "Operations", items: operationsItems },
+    { title: "Field Sales", items: fieldSalesItems },
+    { 
+      title: "Analytics & System", 
+      items: [...analyticsItems, ...systemItems],
+      requiresPermission: true
+    },
+  ];
 
-  return (
-    <Sidebar className="border-r border-gray-200">
-      <SidebarHeader className="bg-white px-4 py-4 md:py-6">
-        <Link href={prefixed("/dashboard")} className="flex items-center gap-2">
-          <Image src="/logo.png" alt="Century Pacific Food" width={140} height={32} className="h-8 w-auto object-contain" />
-        </Link>
-      </SidebarHeader>
+  const renderSection = (section: typeof sidebarSections[0]) => {
+    if (section.requiresPermission && user?.role !== "admin" && user?.role !== "supervisor") {
+      return null;
+    }
 
-      <SidebarContent className="bg-white">
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[#005914] font-semibold text-xs tracking-wider uppercase mb-1">
-            Main
-          </SidebarGroupLabel>
-          <SidebarMenu>
-            {navItems
-              .filter((item) => {
-                if (user?.role !== "admin" && (item as any).adminOnly) return false;
-                if (user?.role !== "supervisor" && (item as any).supervisorOnly) return false;
-                if (item.path === "/dashboard" && user?.role !== "admin" && user?.role !== "supervisor" && user?.role !== "salesman") return false;
-                return true;
-              })
-              .map((item) => {
+    const filteredItems = section.items.filter((item) => {
+      if (user?.role !== "admin" && (item as any).adminOnly) return false;
+      if (user?.role !== "supervisor" && (item as any).supervisorOnly) return false;
+      if (item.path === "/dashboard" && user?.role !== "admin" && user?.role !== "supervisor" && user?.role !== "salesman") return false;
+      return true;
+    });
+
+    if (filteredItems.length === 0) return null;
+
+    const isOpen = activeSection === section.title;
+
+    return (
+      <SidebarGroup key={section.title} className="mb-0">
+        <button
+          onClick={() => setActiveSection(isOpen ? "" : section.title)}
+          className="flex items-center justify-between w-full text-left bg-transparent py-2.5 px-1 hover:opacity-80 transition-opacity focus:outline-none"
+        >
+          <span className="text-[#005914] font-semibold text-xs tracking-wider uppercase">
+            {section.title}
+          </span>
+          <ChevronDown 
+            className={cn("w-4 h-4 text-[#005914] transition-transform duration-200", { "rotate-180": isOpen })}
+          />
+        </button>
+
+        <div
+          className={cn(
+            "grid transition-all duration-300 ease-in-out overflow-hidden",
+            isOpen ? "grid-rows-[1fr] opacity-100 mt-1" : "grid-rows-[0fr] opacity-0 mt-0"
+          )}
+        >
+          <div className="min-h-0">
+            <SidebarMenu>
+              {filteredItems.map((item) => {
                 const url = prefixed(item.path);
                 const isActive = pathname === url || pathname.startsWith(url + "/");
                 const countKey = (item as any).countKey as keyof SidebarCounts | undefined;
@@ -187,15 +184,15 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
-                      className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
+                      className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50 h-9"
                     >
                       <Link href={url} className="flex items-center justify-between w-full">
                         <span className="flex items-center">
-                          <item.icon className="w-5 h-5 mr-2" />
-                          <span>{item.title}</span>
+                          <item.icon className="w-4 h-4 mr-2" />
+                          <span className="text-sm">{item.title}</span>
                         </span>
                         {count !== null && count > 0 && (
-                          <Badge variant="secondary" className="ml-auto bg-[#005914]/10 text-[#005914] text-xs px-2 py-0.5">
+                          <Badge variant="secondary" className="ml-auto bg-[#005914]/10 text-[#005914] text-[10px] px-1.5 py-0 h-4 min-w-[16px] flex items-center justify-center rounded-full">
                             {count}
                           </Badge>
                         )}
@@ -204,83 +201,33 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
                   </SidebarMenuItem>
                 );
               })}
-          </SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[#005914] font-semibold text-xs tracking-wider uppercase mb-1">
-            Product Catalog
-          </SidebarGroupLabel>
-          <SidebarMenu>{renderMenuItems(catalogItems)}</SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[#005914] font-semibold text-xs tracking-wider uppercase mb-1">
-            Operations
-          </SidebarGroupLabel>
-          <SidebarMenu>{renderMenuItems(operationsItems)}</SidebarMenu>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[#005914] font-semibold text-xs tracking-wider uppercase mb-1">
-            Field Sales
-          </SidebarGroupLabel>
-          <SidebarMenu>{renderMenuItems(fieldSalesItems)}</SidebarMenu>
-        </SidebarGroup>
-
-        {(user?.role === "admin" || user?.role === "supervisor") && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[#005914] font-semibold text-xs tracking-wider uppercase mb-1">
-              Analytics & System
-            </SidebarGroupLabel>
-            <SidebarMenu>
-              {[...analyticsItems, ...systemItems]
-                .filter((item) => {
-                  if (user?.role !== "admin" && (item as any).adminOnly) return false;
-                  if (user?.role !== "supervisor" && (item as any).supervisorOnly) return false;
-                  return true;
-                })
-                .map((item) => {
-                  const url = prefixed(item.path);
-                  const isActive = pathname === url || pathname.startsWith(url + "/");
-                  const countKey = (item as any).countKey as keyof SidebarCounts | undefined;
-                  const count = countKey && counts ? counts[countKey] : null;
-                  
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        className="font-medium text-gray-700 select-none outline-none data-[active=true]:bg-[#E2EBE5] data-[active=true]:text-[#005914] data-[active=true]:font-bold hover:bg-gray-50"
-                      >
-                        <Link href={url} className="flex items-center justify-between w-full">
-                          <span className="flex items-center">
-                            <item.icon className="w-5 h-5 mr-2" />
-                            <span>{item.title}</span>
-                          </span>
-                          {count !== null && count > 0 && (
-                            <Badge variant="secondary" className="ml-auto bg-[#005914]/10 text-[#005914] text-xs px-2 py-0.5">
-                              {count}
-                            </Badge>
-                          )}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
             </SidebarMenu>
-          </SidebarGroup>
-        )}
+          </div>
+        </div>
+      </SidebarGroup>
+    );
+  };
+
+  return (
+    <Sidebar className="border-r border-gray-200 shadow-sm flex flex-col h-full bg-white">
+      <SidebarHeader className="bg-white px-4 py-4 md:py-6 shrink-0 z-10 sticky top-0 border-b border-gray-100">
+        <Link href={prefixed("/dashboard")} className="flex items-center gap-2">
+          <Image src="/logo.png" alt="Century Pacific Food" width={140} height={32} className="h-8 w-auto object-contain" priority />
+        </Link>
+      </SidebarHeader>
+
+      <SidebarContent className="bg-white flex-1 overflow-y-auto px-3 py-4 space-y-2 scrollbar-hide">
+        {sidebarSections.map(renderSection)}
       </SidebarContent>
 
-      <SidebarFooter className="bg-white border-t border-gray-100 p-4">
+      <SidebarFooter className="bg-white border-t border-gray-100 p-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-[#005914] flex items-center justify-center text-white font-bold text-xs">
+          <div className="w-9 h-9 rounded-full bg-[#005914] flex items-center justify-center text-white font-bold text-xs shadow-sm">
             {user?.full_name ? user.full_name.substring(0, 2).toUpperCase() : "AD"}
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold text-gray-900 leading-tight">{user?.full_name ?? "Admin User"}</span>
-            <span className="text-xs text-gray-500 font-medium">{user?.email ?? "Loading..."}</span>
+          <div className="flex flex-col flex-1 min-w-0">
+            <span className="text-sm font-semibold text-gray-900 leading-tight truncate">{user?.full_name ?? "Admin User"}</span>
+            <span className="text-xs text-gray-500 font-medium truncate">{user?.email ?? "Loading..."}</span>
           </div>
         </div>
       </SidebarFooter>
