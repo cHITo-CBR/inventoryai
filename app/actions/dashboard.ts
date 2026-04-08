@@ -1,5 +1,4 @@
 "use server";
-
 import { query, queryOne } from "@/lib/db-helpers";
 import { RowDataPacket } from "mysql2";
 
@@ -69,7 +68,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   // Calculate pipeline value (sum of all product values)
   let totalPipelineValue = 0;
   try {
-    const pipelineResult = await queryOne<{ total: number }>(`SELECT COALESCE(SUM(total_cases * packaging_price), 0) as total FROM products WHERE is_archived = 0`);
+    const pipelineResult = await queryOne<{ total: number } & RowDataPacket>(`SELECT COALESCE(SUM(total_cases * packaging_price), 0) as total FROM products WHERE is_archived = 0`);
     totalPipelineValue = pipelineResult?.total ?? 0;
   } catch {
     totalPipelineValue = 0;

@@ -111,8 +111,8 @@ export default function ArchivesPage() {
                       {products.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell className="font-medium text-gray-900">{p.name}</TableCell>
-                          <TableCell className="text-gray-500">{p.product_categories?.name || "—"}</TableCell>
-                          <TableCell className="text-gray-500">{p.brands?.name || "—"}</TableCell>
+                          <TableCell className="text-gray-500">{p.category_name || "—"}</TableCell>
+                          <TableCell className="text-gray-500">{p.brand_name || "—"}</TableCell>
                           <TableCell className="text-right">
                             <Button variant="ghost" size="sm" onClick={() => handleRestore(p.id, "products")} className="text-[#005914] hover:bg-green-50">
                               <ArchiveRestore className="w-4 h-4 mr-2" /> Restore

@@ -1,5 +1,4 @@
 "use server";
-
 import { query, queryOne, update, fromBoolean, toBoolean } from "@/lib/db-helpers";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";

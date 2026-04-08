@@ -1,5 +1,4 @@
-nd will"use server";
-
+"use server";
 import { queryOne } from "@/lib/db-helpers";
 import { getCurrentUser } from "@/app/actions/auth";
 

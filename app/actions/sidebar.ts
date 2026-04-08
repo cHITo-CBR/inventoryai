@@ -1,5 +1,4 @@
 "use server";
-
 import { query } from "@/lib/db-helpers";
 
 export interface SidebarCounts {

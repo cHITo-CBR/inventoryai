@@ -1,8 +1,7 @@
 "use server";
-
-import { query } from "@/lib/db/mysql";
-import { RowDataPacket } from "mysql2";
-import { getSession } from "@/app/actions/auth";
+import { query } from "@/lib/db-helpers";
+import { RowDataPacket } from "mysql2/promise";
+import { getSession } from "@/lib/session";
 
 export interface BookingRow {
   id: string;

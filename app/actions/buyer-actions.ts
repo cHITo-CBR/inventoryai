@@ -1,5 +1,4 @@
 "use server";
-
 import { query, queryOne, generateUUID, fromBoolean, toBoolean } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 import { RowDataPacket } from "mysql2";

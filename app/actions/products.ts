@@ -1,5 +1,4 @@
 "use server";
-
 import { query, queryOne, insert, update, remove, transaction, generateUUID, fromBoolean, toBoolean, buildLikeSearch } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 import { RowDataPacket } from "mysql2/promise";
@@ -242,7 +241,7 @@ export async function getArchivedProducts(): Promise<ProductRow[]> {
        ORDER BY p.created_at DESC`,
       [fromBoolean(true)]
     );
-    return products.map(p => ({ ...p, is_active: toBoolean(p.is_active) }));
+    return products.map(p => ({ ...p, is_active: toBoolean(p.is_active), packaging_price: p.packaging_price ? Number(p.packaging_price) : null }));
   } catch (error) {
     console.error("Error fetching archived products:", error);
     return [];

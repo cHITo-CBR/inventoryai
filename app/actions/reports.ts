@@ -1,3 +1,4 @@
+"use server";
 import { query, queryOne } from "@/lib/db-helpers";
 
 export interface SalesTrendPoint {

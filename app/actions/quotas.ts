@@ -1,5 +1,4 @@
 "use server";
-
 import { query, queryOne } from "@/lib/db-helpers";
 import { RowDataPacket } from "mysql2";
 import { getCurrentUser } from "@/app/actions/auth";

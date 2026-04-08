@@ -1,5 +1,4 @@
 "use server";
-
 import cloudinary from "@/lib/cloudinary";
 
 export async function uploadToCloudinary(file: File): Promise<{

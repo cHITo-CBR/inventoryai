@@ -1,3 +1,4 @@
+"use server";
 import { query, queryOne, toBoolean } from "@/lib/db-helpers";
 import { RowDataPacket } from "mysql2";
 

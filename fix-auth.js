@@ -1,4 +1,6 @@
-"use server";
+const fs = require('fs');
+const content = `"use server";
+
 import pool from "@/lib/db";
 import { generateUUID } from "@/lib/db-helpers";
 import { redirect } from "next/navigation";
@@ -40,8 +42,8 @@ export async function registerUser(prevState: any, formData: FormData) {
     const passwordHash = await bcrypt.hash(password, 10); 
     
     await pool.query(
-      `INSERT INTO users (id, full_name, email, phone_number, password_hash, role_id, status, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      \`INSERT INTO users (id, full_name, email, phone_number, password_hash, role_id, status, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)\`,
       [
         userId, 
         fullName, 
@@ -57,8 +59,8 @@ export async function registerUser(prevState: any, formData: FormData) {
     if (isBuyer) {
       const customerId = generateUUID();
       await pool.query(
-        `INSERT INTO customers (id, store_name, contact_person, email, phone_number, is_active)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+        \`INSERT INTO customers (id, store_name, contact_person, email, phone_number, is_active)
+         VALUES (?, ?, ?, ?, ?, ?)\`,
         [customerId, fullName, fullName, email, phone || null, 1]
       );
     }
@@ -80,10 +82,10 @@ export async function loginUser(prevState: any, formData: FormData) {
 
   try {
     const [users] = await pool.query<RowDataPacket[]>(
-      `SELECT u.*, r.name as role_name 
+      \`SELECT u.*, r.name as role_name 
        FROM users u 
        LEFT JOIN roles r ON u.role_id = r.id 
-       WHERE u.email = ?`, 
+       WHERE u.email = ?\`, 
       [email]
     );
 
@@ -103,7 +105,7 @@ export async function loginUser(prevState: any, formData: FormData) {
       return { error: "Waiting for admin approval. Your account is pending." };
     }
     if (user.status === "rejected") {
-      return { error: `Account rejected. Reason: ${user.rejection_reason || 'Unknown'}` };
+      return { error: \`Account rejected. Reason: \${user.rejection_reason || 'Unknown'}\` };
     }
     if (!user.is_active) {
       return { error: "Account is inactive." };
@@ -142,3 +144,5 @@ export async function getCurrentUser() {
     return null;
   }
 }
+`;
+fs.writeFileSync('app/actions/auth.ts', content);
