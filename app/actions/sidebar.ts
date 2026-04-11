@@ -8,9 +8,9 @@ export async function getSidebarCounts() {
       supabase.from("products").select("*", { count: "exact", head: true }).eq("is_active", true).then(r => r.count || 0),
       supabase.from("sales_transactions").select("*", { count: "exact", head: true }).then(r => r.count || 0),
       supabase.from("salesman_quotas").select("*", { count: "exact", head: true }).eq("status", "ongoing").then(r => r.count || 0),
-      supabase.from("store_visits").select("*", { count: "exact", head: true }).then(r => r.count || 0).catch(() => 0),
-      supabase.from("buyer_requests").select("*", { count: "exact", head: true }).eq("status", "pending").then(r => r.count || 0).catch(() => 0),
-      supabase.from("notifications").select("*", { count: "exact", head: true }).eq("is_read", false).then(r => r.count || 0).catch(() => 0),
+      supabase.from("store_visits").select("*", { count: "exact", head: true }).then(r => r.count || 0, () => 0),
+      supabase.from("buyer_requests").select("*", { count: "exact", head: true }).eq("status", "pending").then(r => r.count || 0, () => 0),
+      supabase.from("notifications").select("*", { count: "exact", head: true }).eq("is_read", false).then(r => r.count || 0, () => 0),
     ]);
 
     return {
