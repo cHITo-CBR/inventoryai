@@ -20,7 +20,8 @@ export interface ProductRow {
   category_name?: string | null;
   brand_name?: string | null;
   packaging_type_name?: string | null;
-  net_weight: string | null;
+  total_packaging?: string | null;
+  net_weight?: string | null;
 }
 
 export interface ProductVariantRow {

@@ -165,9 +165,9 @@ export default function MobileShopProductsPage() {
                         {variant.packaging_type}
                       </span>
                     )}
-                    {p.total_packaging && (
+                    {p.total_cases !== undefined && p.total_cases !== null && (
                       <span className="px-2 py-0.5 bg-white/20 backdrop-blur-md text-white text-[9px] font-bold rounded-full uppercase tracking-wider">
-                        {p.total_packaging} Cases
+                        {p.total_cases} CASES
                       </span>
                     )}
                   </div>
@@ -178,15 +178,15 @@ export default function MobileShopProductsPage() {
                     {p.name}
                   </h3>
                   
-                  {p.net_weight && (
+                  {(p.total_packaging || p.net_weight) && (
                     <p className="text-[10px] text-gray-400 font-medium mb-1 uppercase tracking-tight">
-                      {p.net_weight}
+                      {p.total_packaging ? `${p.total_packaging} x ` : ''}{p.net_weight || ''}
                     </p>
                   )}
                   
-                  {variant?.unit_price && (
+                  {p.packaging_price !== undefined && p.packaging_price !== null && (
                     <p className="text-[14px] font-bold text-[#4B5E65] mb-3">
-                      ₱{Number(variant.unit_price).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
+                      ₱{Number(p.packaging_price).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                     </p>
                   )}
                 </div>
