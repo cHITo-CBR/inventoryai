@@ -1,7 +1,7 @@
 "use server";
-import { query, queryOne, insert, update, remove, transaction, generateUUID, fromBoolean, toBoolean, buildLikeSearch } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
+import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
-import { RowDataPacket } from "mysql2/promise";
 import { uploadImageFromBase64, deleteFromCloudinary } from "./cloudinary";
 
 export interface ProductRow {
@@ -11,7 +11,7 @@ export interface ProductRow {
   image_url: string | null;
   total_cases: number;
   items_per_case: number;
-  packaging_price: number | null; // Ensure this is number type
+  packaging_price: number | null;
   is_active: boolean;
   created_at: string;
   category_id: number | null;
@@ -20,26 +20,6 @@ export interface ProductRow {
   category_name?: string | null;
   brand_name?: string | null;
   packaging_type_name?: string | null;
-  net_weight: string | null;
-}
-
-interface ProductRowDB extends RowDataPacket {
-  id: string;
-  name: string;
-  description: string | null;
-  image_url: string | null;
-  total_cases: number;
-  items_per_case: number;
-  packaging_price: string | null; // Database returns as string, will convert to number
-  is_active: number;
-  is_archived: number;
-  created_at: string;
-  category_id: number | null;
-  brand_id: number | null;
-  packaging_id: number | null;
-  category_name: string | null;
-  brand_name: string | null;
-  packaging_type_name: string | null;
   net_weight: string | null;
 }
 
@@ -54,58 +34,34 @@ export interface ProductVariantRow {
   is_active: boolean;
 }
 
-interface ProductVariantRowDB extends RowDataPacket {
-  id: string;
-  product_id: string;
-  name: string;
-  sku: string | null;
-  unit_price: number;
-  packaging_id: number | null;
-  unit_id: number | null;
-  is_active: number;
-}
-
-interface ProductIdResult extends RowDataPacket {
-  id: string;
-}
-
 export async function getProducts(search?: string): Promise<ProductRow[]> {
   try {
-    let sql = `
-      SELECT p.*, 
-             pc.name as category_name, 
-             b.name as brand_name,
-             CONCAT(pt.name, CASE WHEN pt.description IS NOT NULL AND pt.description != '' THEN CONCAT(' - ', pt.description) ELSE '' END) as packaging_type_name,
-             p.packaging_price
-      FROM products p
-      LEFT JOIN product_categories pc ON p.category_id = pc.id
-      LEFT JOIN brands b ON p.brand_id = b.id
-      LEFT JOIN packaging_types pt ON p.packaging_id = pt.id
-      WHERE p.is_archived = ?
-    `;
-    const params: any[] = [fromBoolean(false)];
+    let query = supabase
+      .from("products")
+      .select(`
+        *,
+        product_categories(name),
+        brands(name),
+        packaging_types(name, description)
+      `)
+      .eq("is_archived", false)
+      .order("created_at", { ascending: false });
 
     if (search && search.trim()) {
-      const { condition, value } = buildLikeSearch("p.name", search);
-      sql += ` AND ${condition}`;
-      params.push(value);
+      query = query.ilike("name", `%${search}%`);
     }
 
-    sql += " ORDER BY p.created_at DESC";
+    const { data: products, error } = await query;
+    if (error) throw error;
 
-    const products = await query<ProductRowDB>(sql, params);
-    
-    console.log("Raw products from database:", products.length > 0 ? {
-      id: products[0].id,
-      name: products[0].name,
-      packaging_price: products[0].packaging_price,
-      packaging_price_type: typeof products[0].packaging_price
-    } : "No products");
-    
-    return products.map(p => ({ 
-      ...p, 
-      is_active: toBoolean(p.is_active),
-      packaging_price: p.packaging_price ? Number(p.packaging_price) : null
+    return (products || []).map((p: any) => ({
+      ...p,
+      category_name: p.product_categories?.name || null,
+      brand_name: p.brands?.name || null,
+      packaging_type_name: p.packaging_types
+        ? `${p.packaging_types.name}${p.packaging_types.description ? ` - ${p.packaging_types.description}` : ""}`
+        : null,
+      packaging_price: p.packaging_price ? Number(p.packaging_price) : null,
     }));
   } catch (error) {
     console.error("Error fetching products:", error);
@@ -122,98 +78,68 @@ export async function createProduct(formData: FormData) {
   const totalCases = formData.get("totalCases") as string;
   const packagingPrice = formData.get("packagingPrice") as string;
   const imageUrl = formData.get("imageUrl") as string;
-  const imageFile = formData.get("imageFile") as string; // Base64 or existing URL
+  const imageFile = formData.get("imageFile") as string;
   const variantsJSON = formData.get("variants") as string;
 
   if (!name) return { error: "Product name is required." };
 
   try {
     const productId = generateUUID();
-    
-    // Handle image upload to Cloudinary if base64 image is provided
+
+    // Handle image upload to Cloudinary
     let finalImageUrl = imageUrl || null;
     if (imageFile && imageFile.startsWith("data:image")) {
-      console.log("Uploading image to Cloudinary...");
       const uploadResult = await uploadImageFromBase64(imageFile, "products");
       if (uploadResult.success && uploadResult.url) {
         finalImageUrl = uploadResult.url;
-        console.log("Image uploaded to Cloudinary:", finalImageUrl);
-      } else {
-        console.error("Cloudinary upload failed:", uploadResult.error);
-        // Continue with product creation even if image upload fails
       }
     }
-    
-    console.log("Form data received:");
-    console.log("- packagingPrice:", packagingPrice);
-    console.log("- packagingPrice parsed:", packagingPrice ? parseFloat(packagingPrice) : 0.00);
-    console.log("- packagingId:", packagingId);
 
-    console.log("Creating product with packaging price:", packagingPrice);
-    
-    await insert(
-      `INSERT INTO products (id, name, description, image_url, packaging_id, total_cases, packaging_price, category_id, brand_id, is_active, is_archived)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        productId,
-        name,
-        description || null,
-        finalImageUrl,
-        packagingId ? parseInt(packagingId) : null,
-        totalCases ? parseInt(totalCases) : 0,
-        packagingPrice ? parseFloat(packagingPrice) : 0.00,
-        categoryId ? parseInt(categoryId) : null,
-        brandId ? parseInt(brandId) : null,
-        fromBoolean(true),
-        fromBoolean(false)
-      ]
-    );
+    const { error: insertError } = await supabase.from("products").insert({
+      id: productId,
+      name,
+      description: description || null,
+      image_url: finalImageUrl,
+      packaging_id: packagingId ? parseInt(packagingId) : null,
+      total_cases: totalCases ? parseInt(totalCases) : 0,
+      packaging_price: packagingPrice ? parseFloat(packagingPrice) : 0.00,
+      category_id: categoryId ? parseInt(categoryId) : null,
+      brand_id: brandId ? parseInt(brandId) : null,
+      is_active: true,
+      is_archived: false,
+    });
 
-    console.log("Product created successfully with ID:", productId);
+    if (insertError) throw insertError;
 
     // Handle variants
     let variants: ProductVariantRow[] = [];
     try {
-      if (variantsJSON) {
-        variants = JSON.parse(variantsJSON);
-      }
+      if (variantsJSON) variants = JSON.parse(variantsJSON);
     } catch (e) {
       console.error("Failed to parse variants JSON", e);
     }
 
     if (variants.length > 0) {
-      for (const v of variants) {
-        const variantId = generateUUID();
-        await insert(
-          `INSERT INTO product_variants (id, product_id, name, sku, unit_price, packaging_id, unit_id, is_active)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            variantId,
-            productId,
-            v.name,
-            v.sku || `SKU-${name.substring(0, 3).toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
-            Number(v.unit_price) || 0,
-            v.packaging_id || null,
-            v.unit_id || null,
-            fromBoolean(true)
-          ]
-        );
-      }
+      const variantRows = variants.map((v) => ({
+        id: generateUUID(),
+        product_id: productId,
+        name: v.name,
+        sku: v.sku || `SKU-${name.substring(0, 3).toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
+        unit_price: Number(v.unit_price) || 0,
+        packaging_id: v.packaging_id || null,
+        unit_id: v.unit_id || null,
+        is_active: true,
+      }));
+      await supabase.from("product_variants").insert(variantRows);
     } else {
-      // Automatically create a default variant if none provided
-      const variantId = generateUUID();
-      await insert(
-        `INSERT INTO product_variants (id, product_id, name, sku, unit_price, is_active)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          variantId,
-          productId,
-          "Standard",
-          `SKU-${name.substring(0, 3).toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
-          0,
-          fromBoolean(true)
-        ]
-      );
+      await supabase.from("product_variants").insert({
+        id: generateUUID(),
+        product_id: productId,
+        name: "Standard",
+        sku: `SKU-${name.substring(0, 3).toUpperCase()}-${Math.floor(Math.random() * 1000)}`,
+        unit_price: 0,
+        is_active: true,
+      });
     }
 
     revalidatePath("/catalog/products");
@@ -226,20 +152,28 @@ export async function createProduct(formData: FormData) {
 
 export async function getArchivedProducts(): Promise<ProductRow[]> {
   try {
-    const products = await query<ProductRowDB>(
-      `SELECT p.*, 
-              pc.name as category_name, 
-              b.name as brand_name,
-              CONCAT(pt.name, CASE WHEN pt.description IS NOT NULL AND pt.description != '' THEN CONCAT(' - ', pt.description) ELSE '' END) as packaging_type_name
-       FROM products p
-       LEFT JOIN product_categories pc ON p.category_id = pc.id
-       LEFT JOIN brands b ON p.brand_id = b.id
-       LEFT JOIN packaging_types pt ON p.packaging_id = pt.id
-       WHERE p.is_archived = ?
-       ORDER BY p.created_at DESC`,
-      [fromBoolean(true)]
-    );
-    return products.map(p => ({ ...p, is_active: toBoolean(p.is_active), packaging_price: p.packaging_price ? Number(p.packaging_price) : null }));
+    const { data: products, error } = await supabase
+      .from("products")
+      .select(`
+        *,
+        product_categories(name),
+        brands(name),
+        packaging_types(name, description)
+      `)
+      .eq("is_archived", true)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return (products || []).map((p: any) => ({
+      ...p,
+      category_name: p.product_categories?.name || null,
+      brand_name: p.brands?.name || null,
+      packaging_type_name: p.packaging_types
+        ? `${p.packaging_types.name}${p.packaging_types.description ? ` - ${p.packaging_types.description}` : ""}`
+        : null,
+      packaging_price: p.packaging_price ? Number(p.packaging_price) : null,
+    }));
   } catch (error) {
     console.error("Error fetching archived products:", error);
     return [];
@@ -248,10 +182,11 @@ export async function getArchivedProducts(): Promise<ProductRow[]> {
 
 export async function archiveProduct(id: string) {
   try {
-    await update(
-      "UPDATE products SET is_archived = ? WHERE id = ?",
-      [fromBoolean(true), id]
-    );
+    const { error } = await supabase
+      .from("products")
+      .update({ is_archived: true })
+      .eq("id", id);
+    if (error) throw error;
     revalidatePath("/catalog/products");
     return { success: true };
   } catch (error: any) {
@@ -261,10 +196,11 @@ export async function archiveProduct(id: string) {
 
 export async function restoreProduct(id: string) {
   try {
-    await update(
-      "UPDATE products SET is_archived = ? WHERE id = ?",
-      [fromBoolean(false), id]
-    );
+    const { error } = await supabase
+      .from("products")
+      .update({ is_archived: false })
+      .eq("id", id);
+    if (error) throw error;
     revalidatePath("/archives");
     return { success: true };
   } catch (error: any) {
@@ -286,72 +222,68 @@ export async function updateProduct(id: string, formData: FormData) {
   if (!name) return { error: "Product name is required." };
 
   try {
-    console.log("Updating product with packaging price:", packagingPrice);
-    console.log("Updating product with packaging id:", packagingId);
-    
-    await update(
-      `UPDATE products 
-       SET name = ?, description = ?, image_url = ?, packaging_id = ?, total_cases = ?, packaging_price = ?, category_id = ?, brand_id = ?
-       WHERE id = ?`,
-      [
+    const { error: updateError } = await supabase
+      .from("products")
+      .update({
         name,
-        description || null,
-        imageUrl || null,
-        packagingId ? parseInt(packagingId) : null,
-        totalCases ? parseInt(totalCases) : 0,
-        packagingPrice ? parseFloat(packagingPrice) : 0.00,
-        categoryId ? parseInt(categoryId) : null,
-        brandId ? parseInt(brandId) : null,
-        id
-      ]
-    );
+        description: description || null,
+        image_url: imageUrl || null,
+        packaging_id: packagingId ? parseInt(packagingId) : null,
+        total_cases: totalCases ? parseInt(totalCases) : 0,
+        packaging_price: packagingPrice ? parseFloat(packagingPrice) : 0.00,
+        category_id: categoryId ? parseInt(categoryId) : null,
+        brand_id: brandId ? parseInt(brandId) : null,
+      })
+      .eq("id", id);
+
+    if (updateError) throw updateError;
 
     // Handle variants synchronization
     if (variantsJSON) {
       try {
         const variants: ProductVariantRow[] = JSON.parse(variantsJSON);
-        
-        // 1. Get existing variants for this product
-        const existingVariants = await query<ProductIdResult>(
-          "SELECT id FROM product_variants WHERE product_id = ?",
-          [id]
-        );
-        
-        const existingIds = existingVariants.map(v => v.id);
-        const incomingIds = variants.map(v => v.id).filter(Boolean) as string[];
-        
-        // 2. Delete variants that are no longer in the list
-        const toDelete = existingIds.filter(eid => !incomingIds.includes(eid));
-        for (const variantId of toDelete) {
-          await remove("DELETE FROM product_variants WHERE id = ?", [variantId]);
+
+        // Get existing variants
+        const { data: existingVariants } = await supabase
+          .from("product_variants")
+          .select("id")
+          .eq("product_id", id);
+
+        const existingIds = (existingVariants || []).map((v: any) => v.id);
+        const incomingIds = variants.map((v) => v.id).filter(Boolean) as string[];
+
+        // Delete removed variants
+        const toDelete = existingIds.filter((eid: string) => !incomingIds.includes(eid));
+        if (toDelete.length > 0) {
+          await supabase.from("product_variants").delete().in("id", toDelete);
         }
-        
-        // 3. Update or Insert variants
+
+        // Upsert variants
         for (const v of variants) {
-          const variantData = [
-            id,
-            v.name,
-            v.sku,
-            Number(v.unit_price) || 0,
-            v.packaging_id || null,
-            v.unit_id || null,
-            fromBoolean(true)
-          ];
-          
           if (v.id) {
-            await update(
-              `UPDATE product_variants 
-               SET product_id = ?, name = ?, sku = ?, unit_price = ?, packaging_id = ?, unit_id = ?, is_active = ?
-               WHERE id = ?`,
-              [...variantData, v.id]
-            );
+            await supabase
+              .from("product_variants")
+              .update({
+                product_id: id,
+                name: v.name,
+                sku: v.sku,
+                unit_price: Number(v.unit_price) || 0,
+                packaging_id: v.packaging_id || null,
+                unit_id: v.unit_id || null,
+                is_active: true,
+              })
+              .eq("id", v.id);
           } else {
-            const newVariantId = generateUUID();
-            await insert(
-              `INSERT INTO product_variants (id, product_id, name, sku, unit_price, packaging_id, unit_id, is_active)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-              [newVariantId, ...variantData]
-            );
+            await supabase.from("product_variants").insert({
+              id: generateUUID(),
+              product_id: id,
+              name: v.name,
+              sku: v.sku,
+              unit_price: Number(v.unit_price) || 0,
+              packaging_id: v.packaging_id || null,
+              unit_id: v.unit_id || null,
+              is_active: true,
+            });
           }
         }
       } catch (e) {
@@ -369,11 +301,15 @@ export async function updateProduct(id: string, formData: FormData) {
 
 export async function getProductVariantsByProductId(productId: string): Promise<ProductVariantRow[]> {
   try {
-    const variants = await query<ProductVariantRowDB>(
-      "SELECT * FROM product_variants WHERE product_id = ? AND is_active = ? ORDER BY unit_price ASC",
-      [productId, fromBoolean(true)]
-    );
-    return variants.map(v => ({ ...v, is_active: toBoolean(v.is_active) }));
+    const { data, error } = await supabase
+      .from("product_variants")
+      .select("*")
+      .eq("product_id", productId)
+      .eq("is_active", true)
+      .order("unit_price", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching product variants:", error);
     return [];
@@ -382,10 +318,14 @@ export async function getProductVariantsByProductId(productId: string): Promise<
 
 export async function getProductVariants(): Promise<{ id: string; name: string; unit_price: number; sku: string | null }[]> {
   try {
-    return await query<RowDataPacket & { id: string; name: string; unit_price: number; sku: string | null }>(
-      "SELECT id, name, unit_price, sku FROM product_variants WHERE is_active = ? ORDER BY name ASC",
-      [fromBoolean(true)]
-    );
+    const { data, error } = await supabase
+      .from("product_variants")
+      .select("id, name, unit_price, sku")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching product variants:", error);
     return [];

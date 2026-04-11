@@ -1,9 +1,9 @@
 "use server";
-import { query, queryOne, insert, generateUUID, fromBoolean, toBoolean, buildLikeSearch } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
+import { generateUUID } from "@/lib/db-helpers";
 import { getSession } from "@/lib/session";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { RowDataPacket } from "mysql2/promise";
 
 export interface UserRow {
   id: string;
@@ -16,61 +16,34 @@ export interface UserRow {
   role_name?: string;
 }
 
-interface UserRowDB extends RowDataPacket {
-  id: string;
-  full_name: string;
-  email: string;
-  phone_number: string | null;
-  status: string;
-  is_active: number;
-  created_at: string;
-  role_name: string;
-}
-
-interface Role extends RowDataPacket {
-  id: number;
-  name: string;
-}
-
 export async function getUsers(search?: string, roleFilter?: string): Promise<UserRow[]> {
   try {
-    let sql = `
-      SELECT u.id, u.full_name, u.email, u.phone_number, u.status, u.is_active, u.created_at, r.name as role_name
-      FROM users u
-      LEFT JOIN roles r ON u.role_id = r.id
-    `;
-    const params: any[] = [];
-    const conditions: string[] = [];
+    let query = supabase
+      .from("users")
+      .select("id, full_name, email, phone_number, status, is_active, created_at, roles(name)")
+      .order("created_at", { ascending: false });
 
     if (roleFilter && roleFilter !== "all") {
-      const role = await queryOne<Role>(
-        "SELECT id FROM roles WHERE name = ?",
-        [roleFilter]
-      );
+      const { data: role } = await supabase
+        .from("roles")
+        .select("id")
+        .eq("name", roleFilter)
+        .maybeSingle();
       if (role) {
-        conditions.push("u.role_id = ?");
-        params.push(role.id);
+        query = query.eq("role_id", role.id);
       }
     }
 
     if (search && search.trim()) {
-      const { condition: nameCondition, value: nameValue } = buildLikeSearch("u.full_name", search);
-      const { condition: emailCondition, value: emailValue } = buildLikeSearch("u.email", search);
-      conditions.push(`(${nameCondition} OR ${emailCondition})`);
-      params.push(nameValue, emailValue);
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
     }
 
-    if (conditions.length > 0) {
-      sql += " WHERE " + conditions.join(" AND ");
-    }
+    const { data, error } = await query;
+    if (error) throw error;
 
-    sql += " ORDER BY u.created_at DESC";
-
-    const users = await query<UserRowDB>(sql, params);
-    
-    return users.map(user => ({
+    return (data || []).map((user: any) => ({
       ...user,
-      is_active: toBoolean(user.is_active)
+      role_name: user.roles?.name || null,
     }));
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -80,7 +53,12 @@ export async function getUsers(search?: string, roleFilter?: string): Promise<Us
 
 export async function getRoles(): Promise<{ id: number; name: string }[]> {
   try {
-    return await query<Role>("SELECT id, name FROM roles ORDER BY name");
+    const { data, error } = await supabase
+      .from("roles")
+      .select("id, name")
+      .order("name");
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching roles:", error);
     return [];
@@ -107,12 +85,18 @@ export async function createUser(formData: FormData) {
     const passwordHash = await bcrypt.hash(password, 10);
     const userId = generateUUID();
 
-    await insert(
-      `INSERT INTO users (id, full_name, email, phone_number, password_hash, role_id, status, is_active, created_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [userId, fullName, email, phone || null, passwordHash, parseInt(roleId), "approved", fromBoolean(true)]
-    );
+    const { error } = await supabase.from("users").insert({
+      id: userId,
+      full_name: fullName,
+      email,
+      phone_number: phone || null,
+      password_hash: passwordHash,
+      role_id: parseInt(roleId),
+      status: "approved",
+      is_active: true,
+    });
 
+    if (error) throw error;
     revalidatePath("/users");
     return { success: true };
   } catch (error: any) {

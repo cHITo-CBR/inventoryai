@@ -1,37 +1,27 @@
 "use server";
-import { query, queryOne } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
 
-export interface SalesTrendPoint {
-  date: string;
-  total: number;
-}
-
-export interface CategorySalesPoint {
-  category: string;
-  total: number;
-}
+export interface SalesTrendPoint { date: string; total: number; }
+export interface CategorySalesPoint { category: string; total: number; }
 
 export async function getSalesTrends(): Promise<SalesTrendPoint[]> {
   try {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const dateStr = thirtyDaysAgo.toISOString().split('T')[0];
 
-    const data = await query<any>(
-      `SELECT total_amount, created_at 
-       FROM sales_transactions 
-       WHERE created_at >= ? 
-       ORDER BY created_at ASC`,
-      [dateStr]
-    );
+    const { data, error } = await supabase
+      .from("sales_transactions")
+      .select("total_amount, created_at")
+      .gte("created_at", thirtyDaysAgo.toISOString())
+      .order("created_at", { ascending: true });
 
+    if (error) throw error;
     if (!data || data.length === 0) return [];
 
-    // Group by date
     const grouped: Record<string, number> = {};
     data.forEach((t: any) => {
       const date = new Date(t.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      grouped[date] = (grouped[date] || 0) + (parseFloat(t.total_amount) || 0);
+      grouped[date] = (grouped[date] || 0) + (Number(t.total_amount) || 0);
     });
 
     return Object.entries(grouped).map(([date, total]) => ({ date, total }));
@@ -43,23 +33,23 @@ export async function getSalesTrends(): Promise<SalesTrendPoint[]> {
 
 export async function getTopCategories(): Promise<CategorySalesPoint[]> {
   try {
-    const data = await query<any>(
-      `SELECT pc.name as category_name, SUM(sti.subtotal) as total
-       FROM sales_transaction_items sti
-       JOIN product_variants pv ON sti.variant_id = pv.id
-       JOIN products p ON pv.product_id = p.id
-       LEFT JOIN product_categories pc ON p.category_id = pc.id
-       GROUP BY pc.name
-       ORDER BY total DESC
-       LIMIT 5`
-    );
+    const { data, error } = await supabase
+      .from("sales_transaction_items")
+      .select("subtotal, product_variants(products(product_categories(name)))");
 
+    if (error) throw error;
     if (!data || data.length === 0) return [];
 
-    return data.map((row: any) => ({
-      category: row.category_name ?? "Uncategorized",
-      total: parseFloat(row.total) || 0
-    }));
+    const grouped: Record<string, number> = {};
+    data.forEach((item: any) => {
+      const catName = item.product_variants?.products?.product_categories?.name ?? "Uncategorized";
+      grouped[catName] = (grouped[catName] || 0) + (Number(item.subtotal) || 0);
+    });
+
+    return Object.entries(grouped)
+      .map(([category, total]) => ({ category, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
   } catch (error) {
     console.error("Error fetching top categories:", error);
     return [];

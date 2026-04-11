@@ -1,7 +1,7 @@
 "use server";
-import { query, queryOne, insert, update, generateUUID, fromBoolean, toBoolean } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
+import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
-import { RowDataPacket } from "mysql2/promise";
 
 export interface CustomerRow {
   id: string;
@@ -17,40 +17,24 @@ export interface CustomerRow {
   salesman_name?: string | null;
 }
 
-interface CustomerRowDB extends RowDataPacket {
-  id: string;
-  store_name: string;
-  contact_person: string | null;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  city: string | null;
-  region: string | null;
-  is_active: number;
-  created_at: string;
-  salesman_name: string | null;
-}
-
 export interface CustomerStats {
   totalActive: number;
   newThisMonth: number;
 }
 
-interface CountResult extends RowDataPacket {
-  count: number;
-}
-
 export async function getCustomers(): Promise<CustomerRow[]> {
   try {
-    const customers = await query<CustomerRowDB>(
-      `SELECT c.*, u.full_name as salesman_name
-       FROM customers c
-       LEFT JOIN users u ON c.assigned_salesman_id = u.id
-       WHERE c.is_active = ?
-       ORDER BY c.created_at DESC`,
-      [fromBoolean(true)]
-    );
-    return customers.map(c => ({ ...c, is_active: toBoolean(c.is_active) }));
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*, users:assigned_salesman_id(full_name)")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map((c: any) => ({
+      ...c,
+      salesman_name: c.users?.full_name || null,
+    }));
   } catch (error) {
     console.error("Error fetching customers:", error);
     return [];
@@ -59,23 +43,23 @@ export async function getCustomers(): Promise<CustomerRow[]> {
 
 export async function getCustomerStats(): Promise<CustomerStats> {
   try {
-    const totalResult = await queryOne<CountResult>(
-      "SELECT COUNT(*) as count FROM customers WHERE is_active = ?",
-      [fromBoolean(true)]
-    );
+    const { count: totalActive } = await supabase
+      .from("customers")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true);
 
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const newResult = await queryOne<CountResult>(
-      "SELECT COUNT(*) as count FROM customers WHERE created_at >= ?",
-      [startOfMonth.toISOString()]
-    );
+    const { count: newThisMonth } = await supabase
+      .from("customers")
+      .select("*", { count: "exact", head: true })
+      .gte("created_at", startOfMonth.toISOString());
 
     return {
-      totalActive: totalResult?.count ?? 0,
-      newThisMonth: newResult?.count ?? 0,
+      totalActive: totalActive ?? 0,
+      newThisMonth: newThisMonth ?? 0,
     };
   } catch (error) {
     console.error("Error fetching customer stats:", error);
@@ -96,25 +80,20 @@ export async function createCustomer(formData: FormData) {
   if (!storeName) return { error: "Store name is required." };
 
   try {
-    const customerId = generateUUID();
+    const { error } = await supabase.from("customers").insert({
+      id: generateUUID(),
+      store_name: storeName,
+      contact_person: contactPerson || null,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      city: city || null,
+      region: region || null,
+      assigned_salesman_id: assignedSalesmanId || null,
+      is_active: true,
+    });
 
-    await insert(
-      `INSERT INTO customers (id, store_name, contact_person, phone, email, address, city, region, assigned_salesman_id, is_active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [
-        customerId,
-        storeName,
-        contactPerson || null,
-        phone || null,
-        email || null,
-        address || null,
-        city || null,
-        region || null,
-        assignedSalesmanId || null,
-        fromBoolean(true)
-      ]
-    );
-
+    if (error) throw error;
     revalidatePath("/customers");
     return { success: true };
   } catch (error: any) {
@@ -124,10 +103,13 @@ export async function createCustomer(formData: FormData) {
 
 export async function getSalesmenForAssignment(): Promise<{ id: string; full_name: string }[]> {
   try {
-    return await query<RowDataPacket & { id: string; full_name: string }>(
-      "SELECT id, full_name FROM users WHERE is_active = ? ORDER BY full_name",
-      [fromBoolean(true)]
-    );
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, full_name")
+      .eq("is_active", true)
+      .order("full_name");
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching salesmen:", error);
     return [];
@@ -136,10 +118,14 @@ export async function getSalesmenForAssignment(): Promise<{ id: string; full_nam
 
 export async function getRegisteredBuyers(): Promise<{ id: string; full_name: string; email: string }[]> {
   try {
-    return await query<RowDataPacket & { id: string; full_name: string; email: string }>(
-      "SELECT id, full_name, email FROM users WHERE role_id = 4 AND is_active = ? ORDER BY full_name",
-      [fromBoolean(true)]
-    );
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, full_name, email")
+      .eq("role_id", 4)
+      .eq("is_active", true)
+      .order("full_name");
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching buyers:", error);
     return [];
@@ -148,15 +134,17 @@ export async function getRegisteredBuyers(): Promise<{ id: string; full_name: st
 
 export async function getSalesmanCustomers(salesmanId: string): Promise<CustomerRow[]> {
   try {
-    const customers = await query<CustomerRowDB>(
-      `SELECT c.*, u.full_name as salesman_name
-       FROM customers c
-       LEFT JOIN users u ON c.assigned_salesman_id = u.id
-       WHERE c.assigned_salesman_id = ? AND c.is_active = ?
-       ORDER BY c.store_name ASC`,
-      [salesmanId, fromBoolean(true)]
-    );
-    return customers.map(c => ({ ...c, is_active: toBoolean(c.is_active) }));
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*, users:assigned_salesman_id(full_name)")
+      .eq("assigned_salesman_id", salesmanId)
+      .eq("is_active", true)
+      .order("store_name");
+    if (error) throw error;
+    return (data || []).map((c: any) => ({
+      ...c,
+      salesman_name: c.users?.full_name || null,
+    }));
   } catch (error) {
     console.error("Error fetching salesman customers:", error);
     return [];
@@ -165,14 +153,14 @@ export async function getSalesmanCustomers(salesmanId: string): Promise<Customer
 
 export async function getUnassignedCustomers(): Promise<CustomerRow[]> {
   try {
-    const customers = await query<CustomerRowDB>(
-      `SELECT c.*, NULL as salesman_name
-       FROM customers c
-       WHERE c.assigned_salesman_id IS NULL AND c.is_active = ?
-       ORDER BY c.created_at DESC`,
-      [fromBoolean(true)]
-    );
-    return customers.map(c => ({ ...c, is_active: toBoolean(c.is_active) }));
+    const { data, error } = await supabase
+      .from("customers")
+      .select("*")
+      .is("assigned_salesman_id", null)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data || []).map((c: any) => ({ ...c, salesman_name: null }));
   } catch (error) {
     console.error("Error fetching unassigned customers:", error);
     return [];
@@ -181,10 +169,11 @@ export async function getUnassignedCustomers(): Promise<CustomerRow[]> {
 
 export async function assignCustomerToSalesman(customerId: string, salesmanId: string) {
   try {
-    await update(
-      "UPDATE customers SET assigned_salesman_id = ? WHERE id = ?",
-      [salesmanId, customerId]
-    );
+    const { error } = await supabase
+      .from("customers")
+      .update({ assigned_salesman_id: salesmanId })
+      .eq("id", customerId);
+    if (error) throw error;
     revalidatePath("/salesman/customers");
     revalidatePath("/admin/customers");
     return { success: true };

@@ -1,6 +1,5 @@
 "use server";
-import { query, queryOne } from "@/lib/db-helpers";
-import { RowDataPacket } from "mysql2";
+import supabase from "@/lib/db";
 
 export interface DashboardKPIs {
   totalUsers: number;
@@ -9,11 +8,11 @@ export interface DashboardKPIs {
   totalProducts: number;
   lowStockItems: number;
   totalSales: number;
-  totalPipelineValue: number;  // New: Sum of all product values
-  pipelineGrowth: number;      // New: Growth percentage
-  goalEfficiency: number;      // New: Calculated efficiency
-  hubStatus: 'operational' | 'maintenance' | 'offline'; // New: System status
-  totalEarnings: number; // New: Total earnings from successful orders
+  totalPipelineValue: number;
+  pipelineGrowth: number;
+  goalEfficiency: number;
+  hubStatus: 'operational' | 'maintenance' | 'offline';
+  totalEarnings: number;
 }
 
 export interface RecentTransaction {
@@ -29,20 +28,14 @@ export interface LowStockItem {
   balance: number;
 }
 
-interface CountRow extends RowDataPacket {
-  count: number;
-}
-
-async function safeCount(table: string, filter?: { column: string; value: string | number }): Promise<number> {
+async function safeCount(table: string, filter?: { column: string; value: any }): Promise<number> {
   try {
-    let sql = `SELECT COUNT(*) AS count FROM ${table}`;
-    const params: any[] = [];
+    let query = supabase.from(table).select("*", { count: "exact", head: true });
     if (filter) {
-      sql += ` WHERE ${filter.column} = ?`;
-      params.push(filter.value);
+      query = query.eq(filter.column, filter.value);
     }
-    const result = await queryOne<CountRow>(sql, params);
-    return result?.count ?? 0;
+    const { count } = await query;
+    return count ?? 0;
   } catch {
     return 0;
   }
@@ -51,59 +44,57 @@ async function safeCount(table: string, filter?: { column: string; value: string
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   const [totalUsers, totalCustomers, totalProducts] = await Promise.all([
     safeCount("users"),
-    safeCount("users", { column: "role_id", value: 4 }), // Role ID 4 is for 'buyer'
+    safeCount("users", { column: "role_id", value: 4 }),
     safeCount("products"),
   ]);
 
   let successfulOrdersCount = 0;
   try {
-    const ordersResult = await queryOne<CountRow>(`SELECT COUNT(*) AS count FROM sales_transactions WHERE status = 'completed'`);
-    successfulOrdersCount = ordersResult?.count ?? 0;
-  } catch {
-    successfulOrdersCount = 0;
-  }
+    const { count } = await supabase
+      .from("sales_transactions")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "completed");
+    successfulOrdersCount = count ?? 0;
+  } catch { successfulOrdersCount = 0; }
 
-  // Get low stock items (products with total_cases < 10)
   let lowStockItems = 0;
   try {
-    const lowStockResult = await queryOne<CountRow>(`SELECT COUNT(*) AS count FROM products WHERE total_cases < 10 AND is_archived = 0`);
-    lowStockItems = lowStockResult?.count ?? 0;
-  } catch {
-    lowStockItems = 0;
-  }
+    const { count } = await supabase
+      .from("products")
+      .select("*", { count: "exact", head: true })
+      .lt("total_cases", 10)
+      .eq("is_archived", false);
+    lowStockItems = count ?? 0;
+  } catch { lowStockItems = 0; }
 
-  // Calculate pipeline value (sum of all product values)
   let totalPipelineValue = 0;
   try {
-    const pipelineResult = await queryOne<{ total: number } & RowDataPacket>(`SELECT COALESCE(SUM(total_cases * packaging_price), 0) as total FROM products WHERE is_archived = 0`);
-    totalPipelineValue = pipelineResult?.total ?? 0;
-  } catch {
-    totalPipelineValue = 0;
-  }
+    const { data } = await supabase
+      .from("products")
+      .select("total_cases, packaging_price")
+      .eq("is_archived", false);
+    totalPipelineValue = (data || []).reduce((sum: number, p: any) =>
+      sum + ((p.total_cases || 0) * (Number(p.packaging_price) || 0)), 0);
+  } catch { totalPipelineValue = 0; }
 
-  // Calculate growth percentage (simulate real growth based on current data)
-  const lastMonthValue = totalPipelineValue * 0.89; // Simulate 12% growth
+  const lastMonthValue = totalPipelineValue * 0.89;
   const pipelineGrowth = lastMonthValue > 0 ? Math.round(((totalPipelineValue - lastMonthValue) / lastMonthValue) * 100) : 0;
 
-  // Calculate goal efficiency based on products vs business targets
-  const targetProducts = 50; // Business target
+  const targetProducts = 50;
   const goalEfficiency = targetProducts > 0 ? Math.min(100, Math.round((totalProducts / targetProducts) * 100 * 10)) / 10 : 0;
 
-  // Determine hub status based on system health
-  const hubStatus: 'operational' | 'maintenance' | 'offline' = 
-    totalUsers > 0 && totalProducts > 0 ? 'operational' : 
+  const hubStatus: 'operational' | 'maintenance' | 'offline' =
+    totalUsers > 0 && totalProducts > 0 ? 'operational' :
     totalUsers > 0 ? 'maintenance' : 'offline';
 
-  // Calculate total earnings
   let totalEarnings = 0;
   try {
-    const earningsResult = await queryOne<{ total: number } & RowDataPacket>(`SELECT COALESCE(SUM(total_amount), 0) as total FROM sales_transactions WHERE status = 'completed'`);
-    totalEarnings = earningsResult?.total ?? 0;
-  } catch {
-    totalEarnings = 0;
-  }
-
-  const totalSales = 0; // Keep existing field
+    const { data } = await supabase
+      .from("sales_transactions")
+      .select("total_amount")
+      .eq("status", "completed");
+    totalEarnings = (data || []).reduce((sum: number, t: any) => sum + (Number(t.total_amount) || 0), 0);
+  } catch { totalEarnings = 0; }
 
   return {
     totalUsers,
@@ -111,7 +102,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
     totalCustomers,
     totalProducts,
     lowStockItems,
-    totalSales,
+    totalSales: 0,
     totalPipelineValue,
     pipelineGrowth,
     goalEfficiency,
@@ -120,27 +111,19 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   };
 }
 
-interface TransactionDbRow extends RowDataPacket {
-  id: string;
-  total_amount: number;
-  status: string;
-  created_at: string;
-  customer_store_name: string | null;
-}
-
 export async function getRecentTransactions(): Promise<RecentTransaction[]> {
   try {
-    const transactions = await query<TransactionDbRow>(`
-      SELECT st.id, st.total_amount, st.status, st.created_at, c.store_name AS customer_store_name
-      FROM sales_transactions st
-      LEFT JOIN customers c ON st.customer_id = c.id
-      ORDER BY st.created_at DESC
-      LIMIT 5
-    `);
+    const { data, error } = await supabase
+      .from("sales_transactions")
+      .select("id, total_amount, status, created_at, customers(store_name)")
+      .order("created_at", { ascending: false })
+      .limit(5);
 
-    return transactions.map((t) => ({
+    if (error) throw error;
+
+    return (data || []).map((t: any) => ({
       id: t.id,
-      customer_name: t.customer_store_name ?? "Unknown",
+      customer_name: t.customers?.store_name ?? "Unknown",
       total_amount: t.total_amount ?? 0,
       status: t.status ?? "unknown",
       created_at: t.created_at,
@@ -150,24 +133,19 @@ export async function getRecentTransactions(): Promise<RecentTransaction[]> {
   }
 }
 
-interface LowStockDbRow extends RowDataPacket {
-  balance: number;
-  variant_name: string | null;
-}
-
 export async function getLowStockItems(): Promise<LowStockItem[]> {
   try {
-    const items = await query<LowStockDbRow>(`
-      SELECT il.balance, pv.name AS variant_name
-      FROM inventory_ledger il
-      LEFT JOIN product_variants pv ON il.variant_id = pv.id
-      WHERE il.balance < 10
-      ORDER BY il.balance ASC
-      LIMIT 5
-    `);
+    const { data, error } = await supabase
+      .from("inventory_ledger")
+      .select("balance, product_variants(name)")
+      .lt("balance", 10)
+      .order("balance", { ascending: true })
+      .limit(5);
 
-    return items.map((item) => ({
-      variant_name: item.variant_name ?? "Unknown SKU",
+    if (error) throw error;
+
+    return (data || []).map((item: any) => ({
+      variant_name: item.product_variants?.name ?? "Unknown SKU",
       balance: item.balance ?? 0,
     }));
   } catch {

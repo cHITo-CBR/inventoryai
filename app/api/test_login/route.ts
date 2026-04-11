@@ -1,15 +1,14 @@
-import { queryOne } from "@/lib/db-helpers";
-import { RowDataPacket } from "mysql2/promise";
+import supabase from "@/lib/db";
 
 export async function GET() {
   try {
-    const user = await queryOne<RowDataPacket>(
-      `SELECT u.*, r.name as role_name 
-       FROM users u 
-       JOIN roles r ON u.role_id = r.id 
-       WHERE u.email = ?`,
-      ["admin@flowstock.com"]
-    );
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("*, roles(name)")
+      .eq("email", "admin@flowstock.com")
+      .maybeSingle();
+
+    if (error) throw error;
 
     return Response.json({ user, error: null });
   } catch (error: any) {

@@ -1,14 +1,13 @@
-import { query } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { redirect } from "next/navigation";
 import AdminApprovalClient from "./AdminApprovalClient";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RowDataPacket } from "mysql2/promise";
 
 export const dynamic = "force-dynamic";
 
-interface UserWithRole extends RowDataPacket {
+interface UserWithRole {
   id: string;
   full_name: string;
   email: string;
@@ -27,14 +26,18 @@ export default async function AdminApprovalsPage() {
   // Fetch pending users
   let users: UserWithRole[] = [];
   try {
-    users = await query<UserWithRole>(
-      `SELECT u.id, u.full_name, u.email, u.phone_number, u.created_at, r.name as role_name 
-       FROM users u 
-       JOIN roles r ON u.role_id = r.id 
-       WHERE u.status = ?
-       ORDER BY u.created_at DESC`,
-      ["pending"]
-    );
+    const { data, error } = await supabase
+      .from("users")
+      .select("id, full_name, email, phone_number, created_at, roles(name)")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    users = (data || []).map((u: any) => ({
+      ...u,
+      role_name: u.roles?.name || "unknown",
+    }));
   } catch (error: any) {
     return <div className="p-8 text-red-500">Error loading users: {error.message}</div>;
   }

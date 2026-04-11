@@ -1,6 +1,5 @@
 "use server";
-import { query } from "@/lib/db-helpers";
-import { RowDataPacket } from "mysql2/promise";
+import supabase from "@/lib/db";
 
 export interface AuditLogRow {
   id: string;
@@ -13,30 +12,19 @@ export interface AuditLogRow {
   user_name?: string | null;
 }
 
-interface AuditLogRowDB extends RowDataPacket {
-  id: string;
-  action: string;
-  entity_type: string | null;
-  entity_id: string | null;
-  ip_address: string | null;
-  metadata: string | null;
-  created_at: string;
-  user_name: string | null;
-}
-
 export async function getAuditLogs(): Promise<AuditLogRow[]> {
   try {
-    const logs = await query<AuditLogRowDB>(
-      `SELECT a.id, a.action, a.entity_type, a.entity_id, a.ip_address, a.metadata, a.created_at, u.full_name as user_name
-       FROM audit_logs a
-       LEFT JOIN users u ON a.user_id = u.id
-       ORDER BY a.created_at DESC
-       LIMIT 50`
-    );
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("id, action, entity_type, entity_id, ip_address, metadata, created_at, users:user_id(full_name)")
+      .order("created_at", { ascending: false })
+      .limit(50);
 
-    return logs.map(log => ({
+    if (error) throw error;
+
+    return (data || []).map((log: any) => ({
       ...log,
-      metadata: log.metadata ? JSON.parse(log.metadata) : null
+      user_name: log.users?.full_name || null,
     }));
   } catch (error) {
     console.error("Error fetching audit logs:", error);

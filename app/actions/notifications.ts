@@ -1,8 +1,7 @@
 "use server";
-import { query, queryOne, update, fromBoolean, toBoolean } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
-import { RowDataPacket } from "mysql2/promise";
 
 export interface NotificationRow {
   id: string;
@@ -13,33 +12,19 @@ export interface NotificationRow {
   created_at: string;
 }
 
-interface NotificationRowDB extends RowDataPacket {
-  id: string;
-  title: string;
-  message: string | null;
-  type: string;
-  is_read: number;
-  created_at: string;
-}
-
-interface CountResult extends RowDataPacket {
-  count: number;
-}
-
 export async function getNotifications(): Promise<NotificationRow[]> {
   try {
     const session = await getSession();
     if (!session) return [];
 
-    const notifications = await query<NotificationRowDB>(
-      `SELECT id, title, message, type, is_read, created_at
-       FROM notifications
-       WHERE user_id = ?
-       ORDER BY created_at DESC`,
-      [session.user.id]
-    );
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("id, title, message, type, is_read, created_at")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false });
 
-    return notifications.map(n => ({ ...n, is_read: toBoolean(n.is_read) }));
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching notifications:", error);
     return [];
@@ -51,14 +36,13 @@ export async function getUnreadCount(): Promise<number> {
     const session = await getSession();
     if (!session) return 0;
 
-    const result = await queryOne<CountResult>(
-      `SELECT COUNT(*) as count
-       FROM notifications
-       WHERE user_id = ? AND is_read = ?`,
-      [session.user.id, fromBoolean(false)]
-    );
+    const { count } = await supabase
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", session.user.id)
+      .eq("is_read", false);
 
-    return result?.count ?? 0;
+    return count ?? 0;
   } catch (error) {
     console.error("Error fetching unread count:", error);
     return 0;
@@ -67,11 +51,12 @@ export async function getUnreadCount(): Promise<number> {
 
 export async function markNotificationRead(id: string) {
   try {
-    await update(
-      "UPDATE notifications SET is_read = ? WHERE id = ?",
-      [fromBoolean(true), id]
-    );
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", id);
 
+    if (error) throw error;
     revalidatePath("/notifications");
     return { success: true };
   } catch (error: any) {
@@ -84,11 +69,13 @@ export async function markAllRead() {
   if (!session) return { error: "Unauthorized" };
 
   try {
-    await update(
-      "UPDATE notifications SET is_read = ? WHERE user_id = ? AND is_read = ?",
-      [fromBoolean(true), session.user.id, fromBoolean(false)]
-    );
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", session.user.id)
+      .eq("is_read", false);
 
+    if (error) throw error;
     revalidatePath("/notifications");
     return { success: true };
   } catch (error: any) {

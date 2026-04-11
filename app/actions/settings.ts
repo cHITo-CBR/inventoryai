@@ -1,7 +1,6 @@
 "use server";
-import { query, queryOne, insert, update } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { RowDataPacket } from "mysql2/promise";
 
 export interface SettingRow {
   id: number;
@@ -10,18 +9,14 @@ export interface SettingRow {
   updated_at: string;
 }
 
-interface SettingRowDB extends RowDataPacket {
-  id: number;
-  key: string;
-  value: string | null;
-  updated_at: string;
-}
-
 export async function getSettings(): Promise<SettingRow[]> {
   try {
-    return await query<SettingRowDB>(
-      "SELECT * FROM system_settings ORDER BY `key`"
-    );
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("*")
+      .order("key");
+    if (error) throw error;
+    return data || [];
   } catch (error) {
     console.error("Error fetching settings:", error);
     return [];
@@ -30,21 +25,23 @@ export async function getSettings(): Promise<SettingRow[]> {
 
 export async function updateSetting(key: string, value: string) {
   try {
-    const existing = await queryOne<SettingRowDB>(
-      "SELECT id FROM system_settings WHERE `key` = ?",
-      [key]
-    );
+    const { data: existing } = await supabase
+      .from("system_settings")
+      .select("id")
+      .eq("key", key)
+      .maybeSingle();
 
     if (existing) {
-      await update(
-        "UPDATE system_settings SET value = ?, updated_at = NOW() WHERE `key` = ?",
-        [value, key]
-      );
+      const { error } = await supabase
+        .from("system_settings")
+        .update({ value, updated_at: new Date().toISOString() })
+        .eq("key", key);
+      if (error) throw error;
     } else {
-      await insert(
-        "INSERT INTO system_settings (`key`, value, updated_at) VALUES (?, ?, NOW())",
-        [key, value]
-      );
+      const { error } = await supabase
+        .from("system_settings")
+        .insert({ key, value });
+      if (error) throw error;
     }
 
     revalidatePath("/settings");

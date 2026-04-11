@@ -1,6 +1,5 @@
 "use server";
-import { query, buildLikeSearch } from "@/lib/db-helpers";
-import { RowDataPacket } from "mysql2/promise";
+import supabase from "@/lib/db";
 
 export type SearchResult = {
   id: string;
@@ -10,24 +9,6 @@ export type SearchResult = {
   url: string;
 };
 
-interface ProductResult extends RowDataPacket {
-  id: string;
-  name: string;
-  sku: string | null;
-}
-
-interface CustomerResult extends RowDataPacket {
-  id: string;
-  store_name: string;
-  contact_person: string | null;
-}
-
-interface UserResult extends RowDataPacket {
-  id: string;
-  full_name: string;
-  email: string;
-}
-
 export async function globalSearch(searchQuery: string): Promise<SearchResult[]> {
   if (!searchQuery || searchQuery.trim().length < 2) return [];
 
@@ -35,13 +16,13 @@ export async function globalSearch(searchQuery: string): Promise<SearchResult[]>
 
   try {
     // Search Products
-    const { condition: nameCondition, value: nameValue } = buildLikeSearch("name", searchQuery);
-    const products = await query<ProductResult>(
-      `SELECT id, name, sku FROM products WHERE ${nameCondition} LIMIT 3`,
-      [nameValue]
-    );
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, name, sku")
+      .ilike("name", `%${searchQuery}%`)
+      .limit(3);
 
-    products.forEach((p) => {
+    (products || []).forEach((p: any) => {
       results.push({
         id: `prod_${p.id}`,
         type: "product",
@@ -52,13 +33,13 @@ export async function globalSearch(searchQuery: string): Promise<SearchResult[]>
     });
 
     // Search Customers
-    const { condition: storeCondition, value: storeValue } = buildLikeSearch("store_name", searchQuery);
-    const customers = await query<CustomerResult>(
-      `SELECT id, store_name, contact_person FROM customers WHERE ${storeCondition} LIMIT 3`,
-      [storeValue]
-    );
+    const { data: customers } = await supabase
+      .from("customers")
+      .select("id, store_name, contact_person")
+      .ilike("store_name", `%${searchQuery}%`)
+      .limit(3);
 
-    customers.forEach((c) => {
+    (customers || []).forEach((c: any) => {
       results.push({
         id: `cust_${c.id}`,
         type: "customer",
@@ -69,13 +50,13 @@ export async function globalSearch(searchQuery: string): Promise<SearchResult[]>
     });
 
     // Search Users
-    const { condition: userCondition, value: userValue } = buildLikeSearch("full_name", searchQuery);
-    const users = await query<UserResult>(
-      `SELECT id, full_name, email FROM users WHERE ${userCondition} LIMIT 3`,
-      [userValue]
-    );
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, full_name, email")
+      .ilike("full_name", `%${searchQuery}%`)
+      .limit(3);
 
-    users.forEach((u) => {
+    (users || []).forEach((u: any) => {
       results.push({
         id: `user_${u.id}`,
         type: "user",

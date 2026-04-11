@@ -1,7 +1,7 @@
 "use server";
-import { query, queryOne, generateUUID } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
+import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
-import { RowDataPacket } from "mysql2";
 
 export interface BuyerRequestItemInput {
   product_id: string;
@@ -16,29 +16,28 @@ export interface CreateBuyerRequestInput {
   items: BuyerRequestItemInput[];
 }
 
-/**
- * Creates a new buyer request and its items.
- */
 export async function createBuyerRequest(input: CreateBuyerRequestInput) {
   try {
-    const { salesman_id, customer_id, notes, items } = input;
     const requestId = generateUUID();
 
-    // 1. Create request header
-    await query(`
-      INSERT INTO buyer_requests (id, salesman_id, customer_id, notes, status)
-      VALUES (?, ?, ?, ?, ?)
-    `, [requestId, salesman_id, customer_id, notes || null, "pending"]);
+    const { error: reqError } = await supabase.from("buyer_requests").insert({
+      id: requestId,
+      salesman_id: input.salesman_id,
+      customer_id: input.customer_id,
+      notes: input.notes || null,
+      status: "pending",
+    });
+    if (reqError) throw reqError;
 
-    // 2. Insert items
-    if (items.length > 0) {
-      for (const item of items) {
-        const itemId = generateUUID();
-        await query(`
-          INSERT INTO buyer_request_items (id, request_id, product_id, quantity, notes)
-          VALUES (?, ?, ?, ?, ?)
-        `, [itemId, requestId, item.product_id, item.quantity, item.notes || null]);
-      }
+    if (input.items.length > 0) {
+      const itemRows = input.items.map((item) => ({
+        id: generateUUID(),
+        request_id: requestId,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        notes: item.notes || null,
+      }));
+      await supabase.from("buyer_request_items").insert(itemRows);
     }
 
     revalidatePath("/salesman/dashboard");
@@ -50,121 +49,76 @@ export async function createBuyerRequest(input: CreateBuyerRequestInput) {
   }
 }
 
-interface BuyerRequestDbRow extends RowDataPacket {
-  id: string;
-  salesman_id: string;
-  customer_id: string;
-  notes: string | null;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  customer_store_name: string | null;
-  salesman_full_name: string | null;
-}
-
-interface BuyerRequestItemDbRow extends RowDataPacket {
-  id: string;
-  request_id: string;
-  product_id: string;
-  quantity: number;
-  notes: string | null;
-  product_name: string | null;
-}
-
-/**
- * Fetches buyer requests for a salesman.
- */
 export async function getSalesmanBuyerRequests(salesmanId: string) {
   try {
-    const requests = await query<BuyerRequestDbRow>(`
-      SELECT br.*, c.store_name AS customer_store_name
-      FROM buyer_requests br
-      LEFT JOIN customers c ON br.customer_id = c.id
-      WHERE br.salesman_id = ?
-      ORDER BY br.created_at DESC
-    `, [salesmanId]);
+    const { data: requests, error } = await supabase
+      .from("buyer_requests")
+      .select("*, customers(store_name)")
+      .eq("salesman_id", salesmanId)
+      .order("created_at", { ascending: false });
 
-    // Fetch items for each request
-    const requestIds = requests.map(r => r.id);
-    let itemsMap: Map<string, any[]> = new Map();
+    if (error) throw error;
+
+    const requestIds = (requests || []).map((r: any) => r.id);
+    let itemsMap = new Map<string, any[]>();
 
     if (requestIds.length > 0) {
-      const placeholders = requestIds.map(() => '?').join(',');
-      const items = await query<BuyerRequestItemDbRow>(`
-        SELECT bri.*, p.name AS product_name
-        FROM buyer_request_items bri
-        LEFT JOIN products p ON bri.product_id = p.id
-        WHERE bri.request_id IN (${placeholders})
-      `, requestIds);
+      const { data: items } = await supabase
+        .from("buyer_request_items")
+        .select("*, products(name)")
+        .in("request_id", requestIds);
 
-      for (const item of items) {
-        if (!itemsMap.has(item.request_id)) {
-          itemsMap.set(item.request_id, []);
-        }
+      for (const item of (items || [])) {
+        if (!itemsMap.has(item.request_id)) itemsMap.set(item.request_id, []);
         itemsMap.get(item.request_id)!.push({
           ...item,
-          products: item.product_name ? { name: item.product_name } : null,
+          products: item.products || null,
         });
       }
     }
 
-    const data = requests.map(r => ({
-      ...r,
-      customers: r.customer_store_name ? { store_name: r.customer_store_name } : null,
-      buyer_request_items: itemsMap.get(r.id) || [],
-    }));
-
-    return { success: true, data };
+    return {
+      success: true,
+      data: (requests || []).map((r: any) => ({
+        ...r,
+        customers: r.customers || null,
+        buyer_request_items: itemsMap.get(r.id) || [],
+      })),
+    };
   } catch (error: any) {
     return { success: false, error: error.message };
   }
 }
 
-// ═══════════════════════════════════════════
-// ADMIN ACTIONS
-// ═══════════════════════════════════════════
-
-/**
- * Fetches ALL buyer requests for admin review.
- */
 export async function getAllBuyerRequests() {
   try {
-    const requests = await query<BuyerRequestDbRow>(`
-      SELECT br.*, c.store_name AS customer_store_name, u.full_name AS salesman_full_name
-      FROM buyer_requests br
-      LEFT JOIN customers c ON br.customer_id = c.id
-      LEFT JOIN users u ON br.salesman_id = u.id
-      ORDER BY br.created_at DESC
-    `);
+    const { data: requests } = await supabase
+      .from("buyer_requests")
+      .select("*, customers(store_name), users:salesman_id(full_name)")
+      .order("created_at", { ascending: false });
 
-    // Fetch items for each request
-    const requestIds = requests.map(r => r.id);
-    let itemsMap: Map<string, any[]> = new Map();
+    const requestIds = (requests || []).map((r: any) => r.id);
+    let itemsMap = new Map<string, any[]>();
 
     if (requestIds.length > 0) {
-      const placeholders = requestIds.map(() => '?').join(',');
-      const items = await query<BuyerRequestItemDbRow>(`
-        SELECT bri.*, p.name AS product_name
-        FROM buyer_request_items bri
-        LEFT JOIN products p ON bri.product_id = p.id
-        WHERE bri.request_id IN (${placeholders})
-      `, requestIds);
+      const { data: items } = await supabase
+        .from("buyer_request_items")
+        .select("*, products(name)")
+        .in("request_id", requestIds);
 
-      for (const item of items) {
-        if (!itemsMap.has(item.request_id)) {
-          itemsMap.set(item.request_id, []);
-        }
+      for (const item of (items || [])) {
+        if (!itemsMap.has(item.request_id)) itemsMap.set(item.request_id, []);
         itemsMap.get(item.request_id)!.push({
           ...item,
-          products: item.product_name ? { name: item.product_name } : null,
+          products: item.products || null,
         });
       }
     }
 
-    return requests.map(r => ({
+    return (requests || []).map((r: any) => ({
       ...r,
-      customers: r.customer_store_name ? { store_name: r.customer_store_name } : null,
-      users: r.salesman_full_name ? { full_name: r.salesman_full_name } : null,
+      customers: r.customers || null,
+      users: r.users || null,
       buyer_request_items: itemsMap.get(r.id) || [],
     }));
   } catch (error: any) {
@@ -173,15 +127,14 @@ export async function getAllBuyerRequests() {
   }
 }
 
-/**
- * Updates a buyer request status (fulfill/reject).
- */
 export async function updateBuyerRequestStatus(requestId: string, status: string) {
   try {
-    await query(`
-      UPDATE buyer_requests SET status = ?, updated_at = NOW() WHERE id = ?
-    `, [status, requestId]);
+    const { error } = await supabase
+      .from("buyer_requests")
+      .update({ status })
+      .eq("id", requestId);
 
+    if (error) throw error;
     revalidatePath("/buyer-requests");
     revalidatePath("/salesman/requests");
     return { success: true };

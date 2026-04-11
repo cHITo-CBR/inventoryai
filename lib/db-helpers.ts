@@ -1,85 +1,4 @@
-import pool from "./db";
-import { RowDataPacket, ResultSetHeader } from "mysql2/promise";
-
-/**
- * Execute a SELECT query and return rows
- */
-export async function query<T extends RowDataPacket>(
-  sql: string,
-  params: any[] = []
-): Promise<T[]> {
-  const [rows] = await pool.execute<T[]>(sql, params);
-  return rows;
-}
-
-/**
- * Execute a SELECT query and return a single row
- */
-export async function queryOne<T extends RowDataPacket>(
-  sql: string,
-  params: any[] = []
-): Promise<T | null> {
-  const [rows] = await pool.execute<T[]>(sql, params);
-  return rows.length > 0 ? rows[0] : null;
-}
-
-/**
- * Execute an INSERT query and return the inserted ID
- */
-export async function insert(
-  sql: string,
-  params: any[] = []
-): Promise<number> {
-  const [result] = await pool.execute<ResultSetHeader>(sql, params);
-  return result.insertId;
-}
-
-/**
- * Execute an UPDATE query and return affected rows count
- */
-export async function update(
-  sql: string,
-  params: any[] = []
-): Promise<number> {
-  const [result] = await pool.execute<ResultSetHeader>(sql, params);
-  return result.affectedRows;
-}
-
-/**
- * Execute a DELETE query and return affected rows count
- */
-export async function remove(
-  sql: string,
-  params: any[] = []
-): Promise<number> {
-  const [result] = await pool.execute<ResultSetHeader>(sql, params);
-  return result.affectedRows;
-}
-
-/**
- * Execute any query (for complex operations)
- */
-export async function execute(
-  sql: string,
-  params: any[] = []
-): Promise<ResultSetHeader> {
-  const [result] = await pool.execute<ResultSetHeader>(sql, params);
-  return result;
-}
-
-/**
- * Convert MySQL TINYINT(1) to boolean
- */
-export function toBoolean(value: any): boolean {
-  return value === 1 || value === true;
-}
-
-/**
- * Convert boolean to MySQL TINYINT(1)
- */
-export function fromBoolean(value: boolean): number {
-  return value ? 1 : 0;
-}
+import supabase from "./db";
 
 /**
  * Generate a UUID v4
@@ -89,54 +8,49 @@ export function generateUUID(): string {
 }
 
 /**
- * Build WHERE clause from filters
+ * No-op conversions: PostgreSQL uses native booleans, so no conversion needed.
+ * Kept for backward compatibility with existing code that calls these.
  */
-export function buildWhereClause(
-  filters: Record<string, any>,
-  startIndex: number = 1
-): { clause: string; params: any[] } {
-  const conditions: string[] = [];
-  const params: any[] = [];
-  let paramIndex = startIndex;
+export function toBoolean(value: any): boolean {
+  return value === true || value === 1 || value === "true";
+}
 
-  for (const [key, value] of Object.entries(filters)) {
-    if (value !== undefined && value !== null) {
-      if (typeof value === "object" && "operator" in value) {
-        // Support for custom operators like { operator: 'LIKE', value: '%search%' }
-        conditions.push(`${key} ${value.operator} ?`);
-        params.push(value.value);
-      } else {
-        conditions.push(`${key} = ?`);
-        params.push(value);
-      }
-      paramIndex++;
-    }
-  }
-
-  return {
-    clause: conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "",
-    params,
-  };
+export function fromBoolean(value: boolean): boolean {
+  return value;
 }
 
 /**
- * Execute queries in a transaction
+ * The Supabase client instance for direct use in server actions.
+ * Replaces the old query/queryOne/insert/update/remove pattern.
  */
-export async function transaction<T>(
-  callback: (connection: any) => Promise<T>
-): Promise<T> {
-  const connection = await pool.getConnection();
-  try {
-    await connection.beginTransaction();
-    const result = await callback(connection);
-    await connection.commit();
-    return result;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+export { supabase };
+
+// ──────────────────────────────────────────────────────────────
+// Legacy-compatible helper functions
+// These wrap Supabase queries to maintain a similar API to the old MySQL helpers.
+// However, most refactored actions will use supabase directly.
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * Execute a raw SQL query via Supabase's rpc or the REST API.
+ * Note: For most operations, use supabase.from() instead.
+ */
+export async function rawQuery<T = any>(
+  sql: string,
+  params: any[] = []
+): Promise<T[]> {
+  // This is a fallback — direct SQL not recommended with Supabase JS.
+  // Use supabase.from('table').select() etc. instead.
+  throw new Error("rawQuery is deprecated. Use supabase.from() methods instead.");
+}
+
+/**
+ * Build case-insensitive LIKE search (for Supabase ilike)
+ */
+export function buildIlikeSearch(column: string, searchTerm: string): string {
+  // Escape special characters in the search term
+  const escaped = searchTerm.replace(/[%_\\]/g, "\\$&");
+  return `%${escaped}%`;
 }
 
 /**
@@ -147,7 +61,7 @@ export function escapeLike(value: string): string {
 }
 
 /**
- * Build case-insensitive LIKE search
+ * Build case-insensitive LIKE search pattern
  */
 export function buildLikeSearch(column: string, searchTerm: string): {
   condition: string;
@@ -155,7 +69,7 @@ export function buildLikeSearch(column: string, searchTerm: string): {
 } {
   const escaped = escapeLike(searchTerm);
   return {
-    condition: `LOWER(${column}) LIKE ?`,
-    value: `%${escaped.toLowerCase()}%`,
+    condition: `${column} ILIKE $1`,
+    value: `%${escaped}%`,
   };
 }

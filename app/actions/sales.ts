@@ -1,7 +1,7 @@
 "use server";
-import { query, queryOne, generateUUID } from "@/lib/db-helpers";
+import supabase from "@/lib/db";
+import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
-import { RowDataPacket } from "mysql2";
 
 export interface SalesTransactionRow {
   id: string;
@@ -32,97 +32,55 @@ export interface SaleDetail {
   sales_transaction_items: SaleDetailItem[];
 }
 
-interface SalesTransactionDbRow extends RowDataPacket {
-  id: string;
-  status: string;
-  total_amount: number;
-  notes: string | null;
-  created_at: string;
-  customer_store_name: string | null;
-  salesman_full_name: string | null;
-}
-
 export async function getSalesTransactions(): Promise<SalesTransactionRow[]> {
   try {
-    const rows = await query<SalesTransactionDbRow>(`
-      SELECT st.id, st.status, st.total_amount, st.notes, st.created_at,
-             c.store_name AS customer_store_name,
-             u.full_name AS salesman_full_name
-      FROM sales_transactions st
-      LEFT JOIN customers c ON st.customer_id = c.id
-      LEFT JOIN users u ON st.salesman_id = u.id
-      ORDER BY st.created_at DESC
-    `);
+    const { data, error } = await supabase
+      .from("sales_transactions")
+      .select("id, status, total_amount, notes, created_at, customers(store_name), users(full_name)")
+      .order("created_at", { ascending: false });
 
-    return rows.map(row => ({
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
       id: row.id,
       status: row.status,
       total_amount: row.total_amount,
       notes: row.notes,
       created_at: row.created_at,
-      customers: row.customer_store_name ? { store_name: row.customer_store_name } : null,
-      users: row.salesman_full_name ? { full_name: row.salesman_full_name } : null,
+      customers: row.customers || null,
+      users: row.users || null,
     }));
   } catch {
     return [];
   }
 }
 
-interface SaleDetailDbRow extends RowDataPacket {
-  id: string;
-  status: string;
-  total_amount: number;
-  notes: string | null;
-  created_at: string;
-  customer_store_name: string | null;
-  salesman_full_name: string | null;
-}
-
-interface SaleItemDbRow extends RowDataPacket {
-  id: string;
-  quantity: number;
-  unit_price: number;
-  subtotal: number;
-  variant_name: string | null;
-  variant_sku: string | null;
-}
-
 export async function getSaleDetails(id: string): Promise<SaleDetail | null> {
   try {
-    const transaction = await queryOne<SaleDetailDbRow>(`
-      SELECT st.id, st.status, st.total_amount, st.notes, st.created_at,
-             c.store_name AS customer_store_name,
-             u.full_name AS salesman_full_name
-      FROM sales_transactions st
-      LEFT JOIN customers c ON st.customer_id = c.id
-      LEFT JOIN users u ON st.salesman_id = u.id
-      WHERE st.id = ?
-    `, [id]);
+    const { data: transaction, error } = await supabase
+      .from("sales_transactions")
+      .select("id, status, total_amount, notes, created_at, customers(store_name), users(full_name)")
+      .eq("id", id)
+      .maybeSingle();
 
+    if (error) throw error;
     if (!transaction) return null;
 
-    const items = await query<SaleItemDbRow>(`
-      SELECT sti.id, sti.quantity, sti.unit_price, sti.subtotal,
-             pv.name AS variant_name, pv.sku AS variant_sku
-      FROM sales_transaction_items sti
-      LEFT JOIN product_variants pv ON sti.variant_id = pv.id
-      WHERE sti.transaction_id = ?
-    `, [id]);
+    const { data: items } = await supabase
+      .from("sales_transaction_items")
+      .select("id, quantity, unit_price, subtotal, product_variants(name, sku)")
+      .eq("transaction_id", id);
 
+    const t = transaction as any;
     return {
-      id: transaction.id,
-      status: transaction.status,
-      total_amount: transaction.total_amount,
-      notes: transaction.notes,
-      created_at: transaction.created_at,
-      customers: transaction.customer_store_name ? { store_name: transaction.customer_store_name } : null,
-      users: transaction.salesman_full_name ? { full_name: transaction.salesman_full_name } : null,
-      sales_transaction_items: items.map(item => ({
+      ...t,
+      customers: t.customers || null,
+      users: t.users || null,
+      sales_transaction_items: (items || []).map((item: any) => ({
         id: item.id,
         quantity: item.quantity,
         unit_price: item.unit_price,
         subtotal: item.subtotal,
-        product_variants: item.variant_name ? { name: item.variant_name, sku: item.variant_sku } : null,
+        product_variants: item.product_variants || null,
       })),
     };
   } catch {
@@ -132,30 +90,24 @@ export async function getSaleDetails(id: string): Promise<SaleDetail | null> {
 
 export async function exportSalesCSV(): Promise<string> {
   try {
-    const rows = await query<SalesTransactionDbRow>(`
-      SELECT st.id, st.status, st.total_amount, st.created_at,
-             c.store_name AS customer_store_name,
-             u.full_name AS salesman_full_name
-      FROM sales_transactions st
-      LEFT JOIN customers c ON st.customer_id = c.id
-      LEFT JOIN users u ON st.salesman_id = u.id
-      ORDER BY st.created_at DESC
-    `);
+    const { data: rows } = await supabase
+      .from("sales_transactions")
+      .select("id, status, total_amount, created_at, customers(store_name), users(full_name)")
+      .order("created_at", { ascending: false });
 
-    if (rows.length === 0) return "";
+    if (!rows || rows.length === 0) return "";
 
     const headers = ["Transaction ID", "Date", "Customer", "Sales Rep", "Total Amount", "Status"];
-    const csvRows = rows.map((t) => [
+    const csvRows = rows.map((t: any) => [
       t.id,
       new Date(t.created_at).toLocaleDateString(),
-      t.customer_store_name ?? "N/A",
-      t.salesman_full_name ?? "N/A",
+      t.customers?.store_name ?? "N/A",
+      t.users?.full_name ?? "N/A",
       t.total_amount ?? 0,
       t.status,
     ]);
 
-    const csv = [headers.join(","), ...csvRows.map((r) => r.join(","))].join("\n");
-    return csv;
+    return [headers.join(","), ...csvRows.map((r: any) => r.join(","))].join("\n");
   } catch {
     return "";
   }
@@ -174,38 +126,36 @@ export interface CreateBookingInput {
   items: BookingItemInput[];
 }
 
-/**
- * Creates a new booking (sales transaction) and its items.
- */
 export async function createBooking(input: CreateBookingInput) {
   try {
     const { customer_id, salesman_id, notes, items } = input;
-    
-    // Calculate total
     const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-
-    // Generate UUID for the transaction
     const transactionId = generateUUID();
 
-    // 1. Insert transaction header
-    await query(`
-      INSERT INTO sales_transactions (id, customer_id, salesman_id, total_amount, notes, status)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [transactionId, customer_id, salesman_id, total_amount, notes || null, "pending"]);
+    const { error: txError } = await supabase.from("sales_transactions").insert({
+      id: transactionId,
+      customer_id,
+      salesman_id,
+      total_amount,
+      notes: notes || null,
+      status: "pending",
+    });
+    if (txError) throw txError;
 
-    // 2. Insert transaction items
     if (items.length > 0) {
-      for (const item of items) {
-        const itemId = generateUUID();
-        await query(`
-          INSERT INTO sales_transaction_items (id, transaction_id, variant_id, quantity, unit_price, subtotal)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `, [itemId, transactionId, item.variant_id, item.quantity, item.unit_price, item.quantity * item.unit_price]);
-      }
+      const itemRows = items.map((item) => ({
+        id: generateUUID(),
+        transaction_id: transactionId,
+        variant_id: item.variant_id,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        subtotal: item.quantity * item.unit_price,
+      }));
+      await supabase.from("sales_transaction_items").insert(itemRows);
     }
 
     revalidatePath("/salesman/dashboard");
-    revalidatePath("/sales"); // For admin dashboard
+    revalidatePath("/sales");
     return { success: true, data: { id: transactionId } };
   } catch (error: any) {
     console.error("createBooking error:", error);
@@ -213,69 +163,31 @@ export async function createBooking(input: CreateBookingInput) {
   }
 }
 
-// ═══════════════════════════════════════════
-// ADMIN ACTIONS
-// ═══════════════════════════════════════════
-
-interface BookingDbRow extends RowDataPacket {
-  id: string;
-  customer_id: string;
-  salesman_id: string;
-  status: string;
-  total_amount: number;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-  customer_store_name: string | null;
-  salesman_full_name: string | null;
-}
-
-interface BookingItemDbRow extends RowDataPacket {
-  id: string;
-  transaction_id: string;
-  variant_id: string;
-  quantity: number;
-  unit_price: number;
-  subtotal: number;
-  variant_name: string | null;
-  variant_sku: string | null;
-}
-
-/**
- * Fetches ALL bookings for admin management.
- */
 export async function getAllBookings() {
   try {
-    const transactions = await query<BookingDbRow>(`
-      SELECT st.*, c.store_name AS customer_store_name, u.full_name AS salesman_full_name
-      FROM sales_transactions st
-      LEFT JOIN customers c ON st.customer_id = c.id
-      LEFT JOIN users u ON st.salesman_id = u.id
-      ORDER BY st.created_at DESC
-    `);
+    const { data: transactions } = await supabase
+      .from("sales_transactions")
+      .select("*, customers(store_name), users(full_name)")
+      .order("created_at", { ascending: false });
 
-    // Fetch all items for all transactions
-    const transactionIds = transactions.map(t => t.id);
-    let itemsMap: Map<string, BookingItemDbRow[]> = new Map();
-    
-    if (transactionIds.length > 0) {
-      const placeholders = transactionIds.map(() => '?').join(',');
-      const items = await query<BookingItemDbRow>(`
-        SELECT sti.*, pv.name AS variant_name, pv.sku AS variant_sku
-        FROM sales_transaction_items sti
-        LEFT JOIN product_variants pv ON sti.variant_id = pv.id
-        WHERE sti.transaction_id IN (${placeholders})
-      `, transactionIds);
+    if (!transactions || transactions.length === 0) return [];
 
-      for (const item of items) {
-        if (!itemsMap.has(item.transaction_id)) {
-          itemsMap.set(item.transaction_id, []);
-        }
-        itemsMap.get(item.transaction_id)!.push(item);
-      }
+    const transactionIds = transactions.map((t: any) => t.id);
+    const { data: items } = await supabase
+      .from("sales_transaction_items")
+      .select("*, product_variants(name, sku)")
+      .in("transaction_id", transactionIds);
+
+    const itemsMap = new Map<string, any[]>();
+    for (const item of (items || [])) {
+      if (!itemsMap.has(item.transaction_id)) itemsMap.set(item.transaction_id, []);
+      itemsMap.get(item.transaction_id)!.push({
+        ...item,
+        product_variants: item.product_variants || null,
+      });
     }
 
-    return transactions.map(t => ({
+    return transactions.map((t: any) => ({
       id: t.id,
       customer_id: t.customer_id,
       salesman_id: t.salesman_id,
@@ -284,17 +196,9 @@ export async function getAllBookings() {
       notes: t.notes,
       created_at: t.created_at,
       updated_at: t.updated_at,
-      customers: t.customer_store_name ? { store_name: t.customer_store_name } : null,
-      users: t.salesman_full_name ? { full_name: t.salesman_full_name } : null,
-      sales_transaction_items: (itemsMap.get(t.id) || []).map(item => ({
-        id: item.id,
-        transaction_id: item.transaction_id,
-        variant_id: item.variant_id,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        subtotal: item.subtotal,
-        product_variants: item.variant_name ? { name: item.variant_name, sku: item.variant_sku } : null,
-      })),
+      customers: t.customers || null,
+      users: t.users || null,
+      sales_transaction_items: itemsMap.get(t.id) || [],
     }));
   } catch (error: any) {
     console.error("getAllBookings error:", error);
@@ -302,14 +206,13 @@ export async function getAllBookings() {
   }
 }
 
-/**
- * Updates a booking/transaction status.
- */
 export async function updateBookingStatus(transactionId: string, status: string) {
   try {
-    await query(`
-      UPDATE sales_transactions SET status = ?, updated_at = NOW() WHERE id = ?
-    `, [status, transactionId]);
+    const { error } = await supabase
+      .from("sales_transactions")
+      .update({ status })
+      .eq("id", transactionId);
+    if (error) throw error;
 
     revalidatePath("/bookings");
     revalidatePath("/sales");

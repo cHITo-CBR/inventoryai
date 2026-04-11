@@ -1,27 +1,19 @@
-import mysql from "mysql2/promise";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+// Server-side Supabase client using the publishable key.
+// This is used in server actions and API routes.
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
 // In development, Next.js clears the module cache often.
-// We use a global variable to keep the connection pool across hot reloads.
-const globalForMysql = global as unknown as { mysqlPool: mysql.Pool };
+// We use a global variable to keep the client across hot reloads.
+const globalForSupabase = global as unknown as { supabase: SupabaseClient<any, "public", any> };
 
-const pool = globalForMysql.mysqlPool || mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "navicat",
-  port: parseInt(process.env.DB_PORT || "3306"),
-  ssl: process.env.DB_SSL === "true" ? {
-    rejectUnauthorized: true
-  } : undefined,
-  waitForConnections: true,
-  connectionLimit: 10,
-  maxIdle: 10,
-  idleTimeout: 60000,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-});
+const supabase: SupabaseClient<any, "public", any> =
+  globalForSupabase.supabase ||
+  createClient(supabaseUrl, supabaseKey);
 
-if (process.env.NODE_ENV !== "production") globalForMysql.mysqlPool = pool;
+if (process.env.NODE_ENV !== "production") globalForSupabase.supabase = supabase;
 
-export default pool;
+export default supabase;
