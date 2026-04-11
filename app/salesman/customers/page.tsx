@@ -160,12 +160,9 @@ export default function SalesmanCustomersPage() {
                   <ChevronRight className="w-5 h-5 text-gray-200 flex-shrink-0" />
                 </div>
                 {/* Quick Action Bar */}
-                <div className="flex border-t border-gray-50 divide-x divide-gray-50">
-                  <Link href={`/salesman/callsheets/new?customer=${c.id}`} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-[#005914] hover:bg-green-50/50 transition-colors">
-                    Callsheet
-                  </Link>
-                  <Link href={`/salesman/visits?customer=${c.id}`} className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold text-gray-500 hover:text-blue-600 hover:bg-blue-50/50 transition-colors">
-                    <MapPin className="w-3.5 h-3.5" /> Visit
+                <div className="flex border-t border-gray-50">
+                  <Link href={`/salesman/bookings/new?customerId=${c.id}`} className="flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-bold text-[#005914] bg-green-50/30 hover:bg-green-50 hover:text-green-700 transition-colors">
+                    <MapPin className="w-4 h-4" /> Record Visit & Book Request
                   </Link>
                 </div>
               </CardContent>

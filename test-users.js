@@ -6,15 +6,10 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 );
 
-async function checkLogin() {
-  const { data, error } = await supabase
-    .from("users")
-    .select("*, roles(name)")
-    .eq("email", "admin@flowstock.com")
-    .maybeSingle();
-
-  console.log("User:", data);
+async function checkUsers() {
+  const { data, error } = await supabase.from("users").select("*");
+  console.log("Users:", data);
   if (error) console.error("Error:", error);
 }
 
-checkLogin();
+checkUsers();

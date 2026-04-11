@@ -21,6 +21,7 @@ import Link from "next/link";
 import { getCustomers, type CustomerRow } from "@/app/actions/customers";
 import { getProductVariants } from "@/app/actions/products";
 import { createBooking, type BookingItemInput } from "@/app/actions/sales";
+import { createStoreVisit } from "@/app/actions/store-visits";
 import { getCurrentUser } from "@/app/actions/auth";
 
 function BookingForm() {
@@ -29,7 +30,7 @@ function BookingForm() {
   const customerIdParam = searchParams.get("customerId");
 
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
-  const [variants, setVariants] = useState<{ id: string; name: string; unit_price: number; sku: string | null }[]>([]);
+  const [variants, setVariants] = useState<{ id: string; name: string; unit_price: number; sku: string | null; product_name?: string; total_cases?: number; packaging_price?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState<string>("");
@@ -74,6 +75,14 @@ function BookingForm() {
        if (variant) {
           newItems[index].unit_price = variant.unit_price || 0;
        }
+    } 
+    // Warn if quantity exceeds stock
+    else if (field === "quantity") {
+       const variant = variants.find(v => v.id === newItems[index].variant_id);
+       if (variant && variant.total_cases !== undefined && value > variant.total_cases) {
+          alert(`Warning: The requested quantity (${value} cases) exceeds the available stock (${variant.total_cases} cases) for ${variant.product_name}.`);
+          newItems[index].quantity = variant.total_cases;
+       }
     }
     
     setItems(newItems);
@@ -86,6 +95,18 @@ function BookingForm() {
     if (items.some(it => !it.variant_id)) return alert("Select products for all items");
 
     setSubmitting(true);
+    
+    // First, record the visit automatically since they pressed "Start Visit & Order"
+    try {
+      await createStoreVisit({
+        salesman_id: userId,
+        customer_id: customerId,
+        notes: "Visit recorded through order booking interface",
+      });
+    } catch(err) {
+      console.error("Failed to record visit automatically:", err);
+    }
+
     const result = await createBooking({
       salesman_id: userId,
       customer_id: customerId,
@@ -156,36 +177,34 @@ function BookingForm() {
                         onChange={(e) => updateItem(index, "variant_id", e.target.value)}
                      >
                         <option value="">Select Variant...</option>
-                        {variants.map(v => (
-                          <option key={v.id} value={v.id}>{v.name} ({v.sku || "No SKU"})</option>
-                        ))}
+                        {variants.map(v => {
+                          const stockLevel = v.total_cases !== undefined ? ` - ${v.total_cases} cases left` : "";
+                          const label = v.name === "Standard" ? v.product_name : `${v.product_name} - ${v.name}`;
+                          return (
+                            <option key={v.id} value={v.id}>
+                              {label} ({v.sku || "No SKU"}){stockLevel}
+                            </option>
+                          );
+                        })}
                      </select>
                      <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-red-400">
                         <Trash2 className="w-4 h-4" />
                      </Button>
                   </div>
                   <div className="flex gap-3 items-end">
-                     <div className="w-20">
-                        <Label className="text-[10px] text-gray-400 font-bold uppercase">Qty</Label>
+                     <div className="w-24">
+                        <Label className="text-[10px] text-gray-400 font-bold uppercase">Qty (Cases)</Label>
                         <Input 
                            type="number" 
-                           className="h-9 text-sm rounded-lg border-gray-100" 
+                           min="1"
+                           className="h-9 text-sm rounded-lg border-gray-100 font-medium" 
                            value={item.quantity} 
                            onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
                         />
                      </div>
-                     <div className="flex-1">
-                        <Label className="text-[10px] text-gray-400 font-bold uppercase">Unit Price (₱)</Label>
-                        <Input 
-                           type="number" 
-                           className="h-9 text-sm rounded-lg bg-gray-50 border-0" 
-                           value={item.unit_price} 
-                           onChange={(e) => updateItem(index, "unit_price", parseFloat(e.target.value) || 0)}
-                        />
-                     </div>
-                     <div className="text-right pb-2">
-                        <p className="text-[10px] text-gray-400 font-bold uppercase">Subtotal</p>
-                        <p className="text-sm font-bold">₱{(item.quantity * item.unit_price).toLocaleString()}</p>
+                     <div className="flex-1 text-right flex flex-col justify-end pb-1.5 pt-2 border-t border-gray-100/0">
+                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Subtotal</p>
+                        <p className="text-base font-black text-gray-900">₱{(item.quantity * item.unit_price).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                      </div>
                   </div>
                </CardContent>

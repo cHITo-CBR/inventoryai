@@ -131,7 +131,6 @@ export async function createBooking(input: CreateBookingInput) {
     const { customer_id, salesman_id, notes, items } = input;
     const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
     const transactionId = generateUUID();
-
     const { error: txError } = await supabase.from("sales_transactions").insert({
       id: transactionId,
       customer_id,
@@ -208,9 +207,11 @@ export async function getAllBookings() {
 
 export async function updateBookingStatus(transactionId: string, status: string) {
   try {
+    const updateData: any = { status };
+
     const { error } = await supabase
       .from("sales_transactions")
-      .update({ status })
+      .update(updateData)
       .eq("id", transactionId);
     if (error) throw error;
 

@@ -116,21 +116,7 @@ export async function getSalesmenForAssignment(): Promise<{ id: string; full_nam
   }
 }
 
-export async function getRegisteredBuyers(): Promise<{ id: string; full_name: string; email: string }[]> {
-  try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("id, full_name, email")
-      .eq("role_id", 4)
-      .eq("is_active", true)
-      .order("full_name");
-    if (error) throw error;
-    return data || [];
-  } catch (error) {
-    console.error("Error fetching buyers:", error);
-    return [];
-  }
-}
+
 
 export async function getSalesmanCustomers(salesmanId: string): Promise<CustomerRow[]> {
   try {

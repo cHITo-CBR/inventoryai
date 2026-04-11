@@ -116,11 +116,10 @@ export default function SignupPage() {
                 ].map((role) => (
                   <label
                     key={role.id}
-                    className={`relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all cursor-pointer group hover:shadow-md ${
-                      selectedRole === role.id 
-                        ? "border-[#005914] bg-[#E2EBE5]/30" 
+                    className={`relative flex flex-col items-center p-3 rounded-2xl border-2 transition-all cursor-pointer group hover:shadow-md ${selectedRole === role.id
+                        ? "border-[#005914] bg-[#E2EBE5]/30"
                         : "border-gray-100 bg-white hover:border-gray-200"
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"
@@ -132,11 +131,11 @@ export default function SignupPage() {
                       required
                     />
                     <div className="w-full aspect-square mb-2 overflow-hidden rounded-xl bg-gray-50 flex items-center justify-center">
-                      <Image 
-                        src={role.img} 
-                        alt={role.title} 
-                        width={100} 
-                        height={100} 
+                      <Image
+                        src={role.img}
+                        alt={role.title}
+                        width={100}
+                        height={100}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       />
                     </div>

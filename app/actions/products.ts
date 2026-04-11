@@ -325,16 +325,25 @@ export async function getProductVariantsByProductId(productId: string): Promise<
   }
 }
 
-export async function getProductVariants(): Promise<{ id: string; name: string; unit_price: number; sku: string | null }[]> {
+export async function getProductVariants(): Promise<{ id: string; name: string; unit_price: number; sku: string | null; product_name?: string; total_cases?: number; packaging_price?: number }[]> {
   try {
     const { data, error } = await supabase
       .from("product_variants")
-      .select("id, name, unit_price, sku")
+      .select("id, name, unit_price, sku, products(name, total_cases, packaging_price)")
       .eq("is_active", true)
       .order("name", { ascending: true });
 
     if (error) throw error;
-    return data || [];
+    
+    // Map the response to include the product's actual fields for easier rendering
+    return (data || []).map((v: any) => ({
+      id: v.id,
+      name: v.name,
+      unit_price: v.products?.packaging_price || v.unit_price, // use packaging price as case price if available
+      sku: v.sku,
+      product_name: v.products?.name || v.name,
+      total_cases: v.products?.total_cases || 0
+    }));
   } catch (error) {
     console.error("Error fetching product variants:", error);
     return [];

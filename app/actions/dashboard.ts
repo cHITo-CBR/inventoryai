@@ -85,7 +85,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
 
   const hubStatus: 'operational' | 'maintenance' | 'offline' =
     totalUsers > 0 && totalProducts > 0 ? 'operational' :
-    totalUsers > 0 ? 'maintenance' : 'offline';
+      totalUsers > 0 ? 'maintenance' : 'offline';
 
   let totalEarnings = 0;
   try {

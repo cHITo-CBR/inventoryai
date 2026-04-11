@@ -68,6 +68,8 @@ export default function SalesmanDashboardPage() {
     return "Good evening";
   };
 
+  const currentMonthName = new Date().toLocaleString('default', { month: 'long' });
+
   const kpiHighlights = [
     { label: "Today's Visits", value: kpis?.todayVisits ?? 0, icon: MapPin, gradient: "from-blue-500 to-cyan-400", bg: "bg-blue-50", ring: "ring-blue-100" },
     { label: "Bookings", value: kpis?.confirmedBookings ?? 0, icon: ShoppingBag, gradient: "from-emerald-500 to-green-400", bg: "bg-green-50", ring: "ring-green-100" },
@@ -75,12 +77,10 @@ export default function SalesmanDashboardPage() {
 
   const quickActions = [
     { label: "New Visit", href: "/salesman/customers", icon: Plus, gradient: "from-[#005914] to-[#00802b]", shadow: "shadow-green-900/20" },
-    { label: "Request", href: "/salesman/requests/new", icon: AlertCircle, gradient: "from-blue-500 to-indigo-500", shadow: "shadow-blue-500/20" },
-    { label: "Booking", href: "/salesman/bookings/new", icon: ShoppingBag, gradient: "from-purple-500 to-pink-500", shadow: "shadow-purple-500/20" },
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto relative">
       {/* ═══ Hero Greeting ═══ */}
       <div className="relative overflow-hidden rounded-3xl bg-[#005914] p-6 text-white shadow-xl shadow-green-900/10">
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
@@ -99,19 +99,28 @@ export default function SalesmanDashboardPage() {
           </div>
         </div>
 
-        {/* Daily Target */}
+        {/* Dynamic Sales Target */}
         <div className="relative z-10 mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
             <Target className="w-5 h-5 text-green-200" />
           </div>
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold text-green-100 uppercase tracking-wider">Daily Sales Target</p>
-              <p className="text-xs font-extrabold text-green-300">60%</p>
+              <p className="text-[11px] font-bold text-green-100 uppercase tracking-wider">Sales Target — {currentMonthName}</p>
+              <p className="text-xs font-extrabold text-green-300">
+                {kpis?.quota?.percentage ?? 0}%
+              </p>
             </div>
             <div className="w-full h-2 bg-black/20 rounded-full mt-2 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-green-400 to-emerald-300 rounded-full w-[60%] transition-all duration-1000" />
+              <div 
+                className="h-full bg-gradient-to-r from-green-400 to-emerald-300 rounded-full transition-all duration-1000" 
+                style={{ width: `${kpis?.quota?.percentage ?? 0}%` }}
+              />
             </div>
+            <p className="mt-2 text-xs font-medium text-green-200 tracking-wide flex justify-between">
+              <span>Achieved: ₱{kpis?.quota?.achieved?.toLocaleString("en-PH", { minimumFractionDigits: 2 }) ?? "0.00"}</span>
+              <span>Target: ₱{kpis?.quota?.target?.toLocaleString("en-PH", { minimumFractionDigits: 2 }) ?? "0.00"}</span>
+            </p>
           </div>
         </div>
       </div>
@@ -137,7 +146,7 @@ export default function SalesmanDashboardPage() {
           <Zap className="w-4 h-4 text-amber-500" />
           <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider">Quick Actions</h3>
         </div>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {quickActions.map((action) => (
             <Link key={action.label} href={action.href}>
               <div className={`flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br ${action.gradient} text-white shadow-xl ${action.shadow} transition-all duration-200 active:scale-95 hover:scale-105`}>

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PlusCircle, Building2, Phone, MapPin, Loader2, Inbox } from "lucide-react";
 import {
-  getCustomers, getCustomerStats, createCustomer, getSalesmenForAssignment, getRegisteredBuyers,
+  getCustomers, getCustomerStats, createCustomer, getSalesmenForAssignment,
   type CustomerRow, type CustomerStats,
 } from "@/app/actions/customers";
 
@@ -27,7 +27,6 @@ export default function CustomersManagementPage() {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [stats, setStats] = useState<CustomerStats>({ totalActive: 0, newThisMonth: 0 });
   const [salesmen, setSalesmen] = useState<{ id: string; full_name: string }[]>([]);
-  const [buyers, setBuyers] = useState<{ id: string; full_name: string; email: string }[]>([]);
   const [emailValue, setEmailValue] = useState("");
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -35,16 +34,14 @@ export default function CustomersManagementPage() {
 
   async function loadData() {
     setLoading(true);
-    const [custData, statsData, salesmenData, buyersData] = await Promise.all([
+    const [custData, statsData, salesmenData] = await Promise.all([
       getCustomers(),
       getCustomerStats(),
       getSalesmenForAssignment(),
-      getRegisteredBuyers(),
     ]);
     setCustomers(custData);
     setStats(statsData);
     setSalesmen(salesmenData);
-    setBuyers(buyersData);
     setLoading(false);
   }
 
@@ -96,17 +93,7 @@ export default function CustomersManagementPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2 col-span-2">
                   <Label htmlFor="storeName">Store / Customer Name</Label>
-                  <Select name="storeName" required onValueChange={(val) => {
-                    const buyer = buyers.find(b => b.full_name === val);
-                    if (buyer) setEmailValue(buyer.email || "");
-                  }}>
-                    <SelectTrigger><SelectValue placeholder="Select registered person" /></SelectTrigger>
-                    <SelectContent>
-                      {buyers.map((b) => (
-                        <SelectItem key={b.id} value={b.full_name}>{b.full_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input id="storeName" name="storeName" placeholder="Enter store or customer name" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="contactPerson">Contact Person</Label>
