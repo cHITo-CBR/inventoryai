@@ -40,7 +40,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
   async function handleApprove(id: string) {
     setLoadingId(id);
     // When approved: status -> 'pending', booking_type -> 'salesman'
-    await updateBookingStatus(id, "pending", "salesman");
+    await updateBookingStatus(id, "pending");
     setLoadingId(null);
   }
 

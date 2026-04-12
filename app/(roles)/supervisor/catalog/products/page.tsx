@@ -126,7 +126,7 @@ export default function ProductCatalogPage() {
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category</Label>
               <Select name="categoryId" defaultValue={
-                editingProduct ? categories.find(c => c.name === editingProduct.product_categories?.name)?.id.toString() : undefined
+                editingProduct ? categories.find(c => c.name === editingProduct.category_name)?.id.toString() : undefined
               }>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
@@ -139,7 +139,7 @@ export default function ProductCatalogPage() {
             <div className="space-y-2">
               <Label htmlFor="brandId">Brand</Label>
               <Select name="brandId" defaultValue={
-                editingProduct ? brands.find(b => b.name === editingProduct.brands?.name)?.id.toString() : undefined
+                editingProduct ? brands.find(b => b.name === editingProduct.brand_name)?.id.toString() : undefined
               }>
                 <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                 <SelectContent>
@@ -203,8 +203,8 @@ export default function ProductCatalogPage() {
                         <span className="font-semibold text-[#005914]">{p.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-gray-500">{p.product_categories?.name ?? "—"}</TableCell>
-                    <TableCell className="text-gray-500 font-medium">{p.brands?.name ?? "—"}</TableCell>
+                    <TableCell className="text-gray-500">{p.category_name ?? "—"}</TableCell>
+                    <TableCell className="text-gray-500 font-medium">{p.brand_name ?? "—"}</TableCell>
                     <TableCell className="text-gray-500">{p.total_packaging || "—"}</TableCell>
                     <TableCell className="text-gray-500">{p.net_weight || "—"}</TableCell>
                     <TableCell className="text-right">

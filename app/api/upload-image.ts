@@ -74,11 +74,11 @@ export async function POST(request: NextRequest) {
       filename 
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload error:', error);
     return NextResponse.json({ 
-      error: `Upload failed: ${error.message}`,
-      details: error.toString()
+      error: `Upload failed: ${error?.message || 'Unknown error'}`,
+      details: String(error)
     }, { status: 500 });
   }
 }

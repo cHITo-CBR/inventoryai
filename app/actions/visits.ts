@@ -80,14 +80,15 @@ export async function getVisitReport(id: string): Promise<VisitReportDetail | nu
       .select("id, notes, product_variants:variant_id(name, sku)")
       .eq("visit_id", id);
 
+    const v = visit as any;
     return {
-      id: visit.id,
-      visit_date: visit.visit_date,
-      notes: visit.notes,
-      latitude: visit.latitude,
-      longitude: visit.longitude,
-      customers: visit.customers || null,
-      users: visit.users || null,
+      id: v.id,
+      visit_date: v.visit_date,
+      notes: v.notes,
+      latitude: v.latitude,
+      longitude: v.longitude,
+      customers: Array.isArray(v.customers) ? v.customers[0] || null : v.customers || null,
+      users: Array.isArray(v.users) ? v.users[0] || null : v.users || null,
       store_visit_skus: (skus || []).map((s: any) => ({
         id: s.id,
         notes: s.notes,

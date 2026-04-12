@@ -22,8 +22,6 @@ export interface ProductRow {
   packaging_type_name?: string | null;
   total_packaging?: string | null;
   net_weight?: string | null;
-  product_categories?: { name: string } | null;
-  brands?: { name: string } | null;
 }
 
 export interface ProductVariantRow {

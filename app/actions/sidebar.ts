@@ -1,7 +1,22 @@
 "use server";
 import supabase from "@/lib/db";
 
-export async function getSidebarCounts() {
+export interface SidebarCounts {
+  customers: number;
+  products: number;
+  inventory: number;
+  sales: number;
+  quotas: number;
+  visits: number;
+  buyerRequests: number;
+  bookings: number;
+  notifications: number;
+  orders: number;
+  callsheets: number;
+  [key: string]: number;
+}
+
+export async function getSidebarCounts(): Promise<SidebarCounts> {
   try {
     const [customers, products, sales, quotas, visits, buyerRequests, notifications] = await Promise.all([
       supabase.from("customers").select("*", { count: "exact", head: true }).eq("is_active", true).then(r => r.count || 0),
@@ -23,9 +38,11 @@ export async function getSidebarCounts() {
       buyerRequests: Number(buyerRequests),
       bookings: 0,
       notifications: Number(notifications),
+      orders: 0,
+      callsheets: 0,
     };
   } catch (error) {
     console.error("Error fetching sidebar counts:", error);
-    return { customers: 0, products: 0, inventory: 0, sales: 0, quotas: 0, visits: 0, buyerRequests: 0, bookings: 0, notifications: 0 };
+    return { customers: 0, products: 0, inventory: 0, sales: 0, quotas: 0, visits: 0, buyerRequests: 0, bookings: 0, notifications: 0, orders: 0, callsheets: 0 };
   }
 }

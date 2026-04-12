@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { getSalesmanMobileData } from "@/app/actions/mobile-dashboard";
 import { 
   Plus, 

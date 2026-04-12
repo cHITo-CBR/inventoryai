@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { DashboardHeader } from "@/components/dashboard-header";
 import { CustomerCard } from "@/components/dashboard-cards";
 import { getCustomers } from "@/app/actions/customers";
