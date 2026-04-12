@@ -108,9 +108,8 @@ export default function SignupPage() {
 
             <div className="space-y-3 mb-6">
               <Label className="text-[13px] font-bold text-gray-800 uppercase tracking-wider">Choose Your Role</Label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {[
-                  { id: "buyer", title: "Buyer", img: "/buyer-hero.png" },
                   { id: "salesman", title: "Seller", img: "/seller-hero.png" },
                   { id: "supervisor", title: "Supervisor", img: "/supervisor-hero.png" },
                 ].map((role) => (

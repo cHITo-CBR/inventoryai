@@ -167,3 +167,39 @@ export async function assignCustomerToSalesman(customerId: string, salesmanId: s
     return { error: error.message || "Failed to assign customer." };
   }
 }
+
+export async function updateCustomer(id: string, formData: FormData) {
+  const storeName = formData.get("storeName") as string;
+  const contactPerson = formData.get("contactPerson") as string;
+  const phone = formData.get("phone") as string;
+  const email = formData.get("email") as string;
+  const address = formData.get("address") as string;
+  const city = formData.get("city") as string;
+  const region = formData.get("region") as string;
+  // Note: we can optionally update assignedSalesmanId too, but let's stick to base details
+
+  if (!id) return { error: "Customer ID is required." };
+  if (!storeName) return { error: "Store name is required." };
+
+  try {
+    const { error } = await supabase
+      .from("customers")
+      .update({
+        store_name: storeName,
+        contact_person: contactPerson || null,
+        phone: phone || null,
+        email: email || null,
+        address: address || null,
+        city: city || null,
+        region: region || null,
+      })
+      .eq("id", id);
+
+    if (error) throw error;
+    revalidatePath(`/admin/customers/${id}`);
+    revalidatePath("/admin/customers");
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || "Failed to update customer." };
+  }
+}

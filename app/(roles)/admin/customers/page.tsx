@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { PlusCircle, Building2, Phone, MapPin, Loader2, Inbox } from "lucide-react";
+import Link from "next/link";
 import {
   getCustomers, getCustomerStats, createCustomer, getSalesmenForAssignment,
   type CustomerRow, type CustomerStats,
@@ -203,7 +204,11 @@ export default function CustomersManagementPage() {
                     </TableCell>
                     <TableCell className="text-gray-900 font-medium">{c.salesman_name || "Unassigned"}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" className="h-8">View Records</Button>
+                      <Link href={`/admin/customers/${c.id}`}>
+                        <Button variant="outline" size="sm" className="h-8 hover:bg-gray-50 text-[#005914] font-semibold ring-1 ring-inset ring-gray-200 shadow-sm transition-all hover:ring-[#005914]/20 hover:text-[#005914] active:scale-95">
+                          View Records
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

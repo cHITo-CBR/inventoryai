@@ -10,7 +10,7 @@ export interface SupervisorKPIs {
   visitsToday: number;
   submittedCallsheets: number;
   pendingCallsheetReviews: number;
-  pendingRequests: number;
+
   pendingBookings: number;
   monthlySalesTotal: number;
   lowStockItems: number;
@@ -23,7 +23,6 @@ export interface TeamSalesman {
   status: string;
   visitsToday: number;
   totalCallsheets: number;
-  pendingRequests: number;
   confirmedBookings: number;
   monthlySales: number;
 }
@@ -41,7 +40,6 @@ export async function getSupervisorKPIs(): Promise<SupervisorKPIs> {
       activeSalesmen,
       visitsToday,
       submittedCallsheets,
-      pendingRequests,
       pendingBookings,
       salesData,
       lowStockItems,
@@ -49,7 +47,6 @@ export async function getSupervisorKPIs(): Promise<SupervisorKPIs> {
       supabase.from("users").select("*", { count: "exact", head: true }).eq("role_id", 3).eq("is_active", true),
       supabase.from("store_visits").select("*", { count: "exact", head: true }).gte("visit_date", today),
       supabase.from("callsheets").select("*", { count: "exact", head: true }).eq("status", "submitted"),
-      supabase.from("buyer_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("sales_transactions").select("*", { count: "exact", head: true }).eq("status", "pending"),
       supabase.from("sales_transactions").select("total_amount").gte("created_at", monthStart),
       supabase.from("inventory_ledger").select("*", { count: "exact", head: true }).lt("balance", 10),
@@ -64,14 +61,13 @@ export async function getSupervisorKPIs(): Promise<SupervisorKPIs> {
       visitsToday: visitsToday.count ?? 0,
       submittedCallsheets: submittedCallsheets.count ?? 0,
       pendingCallsheetReviews: submittedCallsheets.count ?? 0,
-      pendingRequests: pendingRequests.count ?? 0,
       pendingBookings: pendingBookings.count ?? 0,
       monthlySalesTotal,
       lowStockItems: lowStockItems.count ?? 0,
     };
   } catch (error) {
     console.error("Error fetching supervisor KPIs:", error);
-    return { activeSalesmen: 0, visitsToday: 0, submittedCallsheets: 0, pendingCallsheetReviews: 0, pendingRequests: 0, pendingBookings: 0, monthlySalesTotal: 0, lowStockItems: 0 };
+    return { activeSalesmen: 0, visitsToday: 0, submittedCallsheets: 0, pendingCallsheetReviews: 0, pendingBookings: 0, monthlySalesTotal: 0, lowStockItems: 0 };
   }
 }
 
@@ -92,10 +88,9 @@ export async function getTeamSalesmen(): Promise<TeamSalesman[]> {
 
     const results: TeamSalesman[] = await Promise.all(
       (salesmen || []).map(async (s: any) => {
-        const [visitsToday, totalCallsheets, pendingRequests, confirmedBookings, salesData] = await Promise.all([
+        const [visitsToday, totalCallsheets, confirmedBookings, salesData] = await Promise.all([
           supabase.from("store_visits").select("*", { count: "exact", head: true }).eq("salesman_id", s.id).gte("visit_date", today),
           supabase.from("callsheets").select("*", { count: "exact", head: true }).eq("salesman_id", s.id),
-          supabase.from("buyer_requests").select("*", { count: "exact", head: true }).eq("salesman_id", s.id).eq("status", "pending"),
           supabase.from("sales_transactions").select("*", { count: "exact", head: true }).eq("salesman_id", s.id).neq("status", "cancelled"),
           supabase.from("sales_transactions").select("total_amount").eq("salesman_id", s.id).gte("created_at", monthStart),
         ]);
@@ -107,7 +102,6 @@ export async function getTeamSalesmen(): Promise<TeamSalesman[]> {
           status: s.is_active ? "active" : "inactive",
           visitsToday: visitsToday.count ?? 0,
           totalCallsheets: totalCallsheets.count ?? 0,
-          pendingRequests: pendingRequests.count ?? 0,
           confirmedBookings: confirmedBookings.count ?? 0,
           monthlySales: (salesData.data || []).reduce((sum: number, t: any) => sum + (Number(t.total_amount) || 0), 0),
         };
@@ -123,11 +117,10 @@ export async function getTeamSalesmen(): Promise<TeamSalesman[]> {
 
 export async function getSalesmanDetail(salesmanId: string) {
   try {
-    const [profileRes, visitsRes, callsheetsRes, requestsRes, bookingsRes] = await Promise.all([
+    const [profileRes, visitsRes, callsheetsRes, bookingsRes] = await Promise.all([
       supabase.from("users").select("id, full_name, email, phone_number, status, created_at").eq("id", salesmanId).maybeSingle(),
       supabase.from("store_visits").select("*, customers(store_name)").eq("salesman_id", salesmanId).order("visit_date", { ascending: false }).limit(20),
       supabase.from("callsheets").select("*, customers(store_name)").eq("salesman_id", salesmanId).order("created_at", { ascending: false }).limit(20),
-      supabase.from("buyer_requests").select("*, customers(store_name)").eq("salesman_id", salesmanId).order("created_at", { ascending: false }).limit(20),
       supabase.from("sales_transactions").select("*, customers(store_name)").eq("salesman_id", salesmanId).order("created_at", { ascending: false }).limit(20),
     ]);
 
@@ -135,12 +128,11 @@ export async function getSalesmanDetail(salesmanId: string) {
       profile: profileRes.data || null,
       visits: visitsRes.data || [],
       callsheets: callsheetsRes.data || [],
-      requests: requestsRes.data || [],
       bookings: bookingsRes.data || [],
     };
   } catch (error) {
     console.error("Error fetching salesman detail:", error);
-    return { profile: null, visits: [], callsheets: [], requests: [], bookings: [] };
+    return { profile: null, visits: [], callsheets: [], bookings: [] };
   }
 }
 

@@ -59,7 +59,6 @@ export default function SupervisorDashboardPage() {
   const kpiCards = [
     { label: "Active Salesmen", value: kpis?.activeSalesmen ?? 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50/50" },
     { label: "Visits Today", value: kpis?.visitsToday ?? 0, icon: MapPin, color: "text-teal-600", bg: "bg-teal-50/50" },
-    { label: "Pending Requests", value: kpis?.pendingRequests ?? 0, icon: ShoppingBag, color: kpis?.pendingRequests ? "text-purple-600" : "text-gray-900", bg: kpis?.pendingRequests ? "bg-purple-50/50" : "" },
     { label: "Pending Bookings", value: kpis?.pendingBookings ?? 0, icon: ShoppingBag, color: kpis?.pendingBookings ? "text-indigo-600" : "text-gray-900", bg: "" },
     { label: "Monthly Sales", value: `₱${(kpis?.monthlySalesTotal ?? 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`, icon: DollarSign, color: "text-green-600", bg: "bg-green-50/50", isText: true },
     { label: "Low Stock Items", value: kpis?.lowStockItems ?? 0, icon: AlertTriangle, color: kpis?.lowStockItems ? "text-red-600" : "text-gray-900", bg: kpis?.lowStockItems ? "bg-red-50/50" : "" },

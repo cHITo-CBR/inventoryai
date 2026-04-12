@@ -13,7 +13,7 @@ export default function SalesmanDetailPage() {
   const params = useParams();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"visits" | "requests" | "bookings">("visits");
+  const [activeTab, setActiveTab] = useState<"visits" | "bookings">("visits");
 
   useEffect(() => {
     if (params.id) {
@@ -29,10 +29,9 @@ export default function SalesmanDetailPage() {
     return <div className="text-center py-16 text-gray-400">Salesman not found</div>;
   }
 
-  const { profile, visits, requests, bookings } = data;
+  const { profile, visits, bookings } = data;
   const tabs = [
     { key: "visits", label: "Visits", count: visits.length, icon: MapPin },
-    { key: "requests", label: "Requests", count: requests.length, icon: ShoppingBag },
     { key: "bookings", label: "Bookings", count: bookings.length, icon: Clock },
   ] as const;
 
@@ -97,29 +96,6 @@ export default function SalesmanDetailPage() {
                     <TableCell className="font-medium">{v.customers?.store_name || "—"}</TableCell>
                     <TableCell>{new Date(v.visit_date || v.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-gray-500 truncate max-w-[200px]">{v.notes || "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          {activeTab === "requests" && (
-            <Table>
-              <TableHeader className="bg-gray-50/50">
-                <TableRow><TableHead>Store</TableHead><TableHead>Items</TableHead><TableHead>Status</TableHead><TableHead>Date</TableHead></TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.length === 0 ? <TableRow><TableCell colSpan={4} className="text-center py-8 text-gray-400">No requests</TableCell></TableRow> : requests.map((r: any) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.customers?.store_name || "—"}</TableCell>
-                    <TableCell>{r.buyer_request_items?.length || 0} items</TableCell>
-                    <TableCell>
-                      <span className={`text-xs font-medium px-2 py-1 rounded-md ${
-                        r.status === "fulfilled" ? "bg-green-50 text-green-700" :
-                        r.status === "pending" ? "bg-yellow-50 text-yellow-700" :
-                        "bg-gray-100 text-gray-700"
-                      }`}>{r.status}</span>
-                    </TableCell>
-                    <TableCell>{new Date(r.created_at).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

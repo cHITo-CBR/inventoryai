@@ -89,7 +89,7 @@ const systemItems = [
 const getSectionFromPath = (path: string): string => {
   if (path.includes("/catalog")) return "Product Catalog";
   if (path.includes("/inventory") || path.includes("/sales") || path.includes("/quotas") || path.includes("/visits")) return "Operations";
-  if (path.includes("/buyer-requests") || path.includes("/bookings")) return "Field Sales";
+  if (path.includes("/bookings")) return "Field Sales";
   if (path.includes("/reports") || path.includes("/notifications") || path.includes("/audit") || path.includes("/archives") || path.includes("/settings") || path.includes("/profile")) return "Analytics & System";
   return "Main";
 };
