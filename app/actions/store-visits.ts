@@ -2,6 +2,7 @@
 import supabase from "@/lib/db";
 import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
+import { notifyRole } from "@/app/actions/notifications";
 
 export interface CreateStoreVisitInput {
   customer_id: string;
@@ -25,7 +26,12 @@ export async function createStoreVisit(input: CreateStoreVisitInput) {
     });
 
     if (error) throw error;
+
+    // Trigger Notification for Supervisors
+    await notifyRole("supervisor", "New Store Visit Logged", `A salesman has logged a new store visit.`);
+
     revalidatePath("/salesman/dashboard");
+    revalidatePath("/notifications");
     revalidatePath("/salesman/visits");
     return { success: true, data: { id: visitId } };
   } catch (error: any) {

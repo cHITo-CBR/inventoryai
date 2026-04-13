@@ -23,7 +23,15 @@ export function TopNav() {
   const [isSearching, setIsSearching] = React.useState(false);
 
   React.useEffect(() => {
+    // Initial fetch
     getUnreadCount().then(setUnreadCount);
+
+    // Dynamic Polling for Vercel-Friendly Real-time updates
+    const intervalId = setInterval(() => {
+      getUnreadCount().then(setUnreadCount);
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(intervalId);
   }, []);
 
   React.useEffect(() => {

@@ -1,5 +1,15 @@
 "use client";
 
+/**
+ * USER MANAGEMENT PAGE (ADMIN ONLY)
+ * This interface controls system access and identity.
+ * Key features:
+ * - Direct Provisioning: Admins can manually create user accounts.
+ * - RBAC (Role-Based Access Control): Assigning users to "admin", "salesman", or "supervisor" roles.
+ * - Search & Filter: Quickly find users by identity or permission level.
+ * - Membership Lifecycle: View status (pending/approved) of system users.
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,6 +39,10 @@ export default function UsersManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  /**
+   * DATA RETRIEVAL LOGIC
+   * Interacts with the users server action to fetch a filtered list of accounts.
+   */
   const loadUsers = useCallback(async () => {
     setLoading(true);
     const data = await getUsers(search, roleFilter);
@@ -36,15 +50,21 @@ export default function UsersManagementPage() {
     setLoading(false);
   }, [search, roleFilter]);
 
+  // Initial load of roles for the dropdowns
   useEffect(() => {
     getRoles().then(setRoles);
   }, []);
 
+  // Debounced search effect
   useEffect(() => {
     const timeout = setTimeout(() => loadUsers(), 300);
     return () => clearTimeout(timeout);
   }, [loadUsers]);
 
+  /**
+   * USER CREATION HANDLER
+   * Validates and submits new user data to the database.
+   */
   async function handleCreateUser(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -52,8 +72,8 @@ export default function UsersManagementPage() {
     const result = await createUser(form);
     setSaving(false);
     if (result.success) {
-      setDialogOpen(false);
-      loadUsers();
+      setDialogOpen(false); // Close modal on success
+      loadUsers(); // Refresh the table
     } else {
       alert(result.error || "Failed to create user.");
     }
@@ -61,6 +81,7 @@ export default function UsersManagementPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {/* PAGE HEADER & USER CREATION DIALOG */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">User Management</h1>
@@ -78,6 +99,7 @@ export default function UsersManagementPage() {
               <DialogTitle>Add New User</DialogTitle>
               <DialogDescription>Create a new user account with a role.</DialogDescription>
             </DialogHeader>
+            {/* User Details Form */}
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>
@@ -119,6 +141,7 @@ export default function UsersManagementPage() {
 
       <Card className="shadow-sm border-0 rounded-xl">
         <CardHeader className="py-4 border-b border-gray-100 flex flex-row items-center justify-between">
+          {/* SEARCH BAR */}
           <div className="flex gap-3 flex-1 max-w-md">
             <div className="relative w-full">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
@@ -130,6 +153,7 @@ export default function UsersManagementPage() {
               />
             </div>
           </div>
+          {/* ROLE FILTER DROPDOWN */}
           <div className="flex items-center gap-3">
             <Select value={roleFilter} onValueChange={setRoleFilter}>
               <SelectTrigger className="w-[140px] h-9">
@@ -152,6 +176,7 @@ export default function UsersManagementPage() {
           ) : users.length === 0 ? (
             <EmptyState message="No users found" />
           ) : (
+            /* USER DIRECTORY TABLE */
             <Table>
               <TableHeader className="bg-gray-50/50">
                 <TableRow>
@@ -172,6 +197,7 @@ export default function UsersManagementPage() {
                       </span>
                     </TableCell>
                     <TableCell>
+                      {/* Visual status indicators (Badge-style) */}
                       <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset ${
                         user.status === "approved" ? "bg-green-50 text-green-700 ring-green-600/20" :
                         user.status === "pending" ? "bg-yellow-50 text-yellow-700 ring-yellow-600/20" :
@@ -190,3 +216,4 @@ export default function UsersManagementPage() {
     </div>
   );
 }
+

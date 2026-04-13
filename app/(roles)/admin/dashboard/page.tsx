@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * ADMIN DASHBOARD PAGE
+ * This is the central hub for administrators.
+ * It provides a high-level overview of the system's health, financial metrics, and inventory status.
+ * Key features:
+ * - Real-time KPI summaries (Users, Orders, Inventory)
+ * - Financial pipeline visualization
+ * - Recent transactions list
+ * - Urgent stock alerts
+ */
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, ShoppingCart, Package, AlertTriangle, ShieldCheck, DollarSign, Loader2, Inbox, Activity, Target, Layers, ArrowUpRight, Zap, CheckCircle } from "lucide-react";
@@ -9,6 +20,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { getDashboardKPIs, getRecentTransactions, getLowStockItems, type DashboardKPIs, type RecentTransaction, type LowStockItem } from "@/app/actions/dashboard";
 
+/**
+ * Component for displaying a placeholder when no data is available in a table section.
+ */
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-gray-400">
@@ -19,11 +33,16 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export default function AdminDashboardPage() {
+  // State for dashboard data
   const [kpis, setKpis] = useState<DashboardKPIs | null>(null);
   const [transactions, setTransactions] = useState<RecentTransaction[]>([]);
   const [lowStock, setLowStock] = useState<LowStockItem[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * INITIAL DATA LOADING
+   * Fetches KPIs, transactions, and low stock items in parallel for efficiency.
+   */
   useEffect(() => {
     async function load() {
       try {
@@ -44,6 +63,7 @@ export default function AdminDashboardPage() {
     load();
   }, []);
 
+  // Loading spinner shown during initial data fetch
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -52,6 +72,10 @@ export default function AdminDashboardPage() {
     );
   }
 
+  /**
+   * KPI CONFIGURATION
+   * Defines the data and styling for the primary summary cards at the top.
+   */
   const kpiCards = [
     {
       label: "Total Users",
@@ -92,7 +116,9 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* ═══ Enterprise Header ═══ */}
+      {/* ═══ ENTERPRISE COMMAND CENTER HEADER ═══ 
+          Displays core financial metrics and system status with premium styling.
+      */}
       <div className="relative overflow-hidden rounded-3xl bg-[#005914] p-6 text-white shadow-xl shadow-green-900/10">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl opacity-50" />
         <div className="relative z-10 flex items-start justify-between">
@@ -121,8 +147,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Global Pipeline Pulse */}
+        {/* FINANCIAL DATA REPRESENTATION */}
         <div className="relative z-10 mt-6 grid grid-cols-2 gap-4">
+          {/* Pipeline Value: Total prospective/active transaction value */}
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-black text-green-100/70 uppercase tracking-widest leading-none">Total Pipeline Value</p>
@@ -150,6 +177,7 @@ export default function AdminDashboardPage() {
               />
             </div>
           </div>
+          {/* Total Earnings: Confirmed/Completed sales */}
           <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-black text-green-100/70 uppercase tracking-widest leading-none">Total Earnings</p>
@@ -173,7 +201,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* PRIMARY KPI SUMMARY CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {kpiCards.map((card) => (
           <Card key={card.label} className={`shadow-sm border-0 rounded-xl relative overflow-hidden ${card.bg}`}>
@@ -192,7 +220,9 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Transactions */}
+        {/* RECENT TRANSACTIONS SECTION
+            Lists the latest sales activity across the enterprise.
+        */}
         <Card className="shadow-sm border-0 rounded-xl">
           <CardHeader className="py-4 border-b border-gray-100 flex flex-row items-center justify-between bg-white rounded-t-xl">
             <CardTitle className="text-lg font-semibold text-gray-800">Recent Sales Transactions</CardTitle>
@@ -233,7 +263,9 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Low Stock Alerts */}
+        {/* LOW STOCK ALERTS SECTION
+            Dynamic list of inventory variants that are running low on stock.
+        */}
         <Card className="shadow-sm border-0 rounded-xl">
           <CardHeader className="py-4 border-b border-gray-100 flex flex-row items-center justify-between bg-white rounded-t-xl">
             <CardTitle className="text-lg font-semibold text-gray-800">Low Stock Alerts</CardTitle>
@@ -268,3 +300,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

@@ -11,6 +11,7 @@ import { generateUUID } from "@/lib/db-helpers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { createSession, getSession, clearSession } from "@/lib/session";
+import { notifyRole } from "@/app/actions/notifications";
 
 /**
  * Handles new user registration.
@@ -82,6 +83,14 @@ export async function registerUser(prevState: any, formData: FormData) {
         is_active: true,
       });
     }
+
+    // Notify the admin of a new registration
+    await notifyRole(
+      "admin", 
+      "New User Registration", 
+      `A new user (${fullName}) has registered as a ${roleName} and requires review.`,
+      "info"
+    );
 
     return { success: true, autoapproved: isAutoApprove };
   } catch (error: any) {

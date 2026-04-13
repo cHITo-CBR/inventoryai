@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PlusCircle, Search, PackageOpen, Loader2, Inbox, Edit, Archive, Upload, X } from "lucide-react";
 import { getProducts, createProduct, updateProduct, archiveProduct, type ProductRow } from "@/app/actions/products";
 import { getCategories, getBrands, getPackagingTypes, type CategoryRow, type BrandRow, type PackagingRow } from "@/app/actions/catalog";
+import { uploadImageFromBase64 } from "@/app/actions/cloudinary";
 
 function EmptyState({ message }: { message: string }) {
   return (
@@ -83,27 +84,33 @@ export default function ProductCatalogPage() {
     if (!file) return;
     
     setUploadingImage(true);
-    const formData = new FormData();
-    formData.append('image', file);
-
+    
     try {
-      const response = await fetch('/api/logout', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const result = await response.json();
+      // Read file as Base64 for Cloudinary server action
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
       
-      if (result.success) {
-        setUploadedImageUrl(result.imageUrl);
-      } else {
-        alert(result.error || 'Failed to upload image');
-        console.error('Upload error:', result);
-      }
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const result = await uploadImageFromBase64(base64, "products");
+        
+        if (result.success && result.url) {
+          setUploadedImageUrl(result.url);
+        } else {
+          alert(result.error || 'Failed to upload image to Cloudinary');
+        }
+        setUploadingImage(false);
+      };
+
+      reader.onerror = (error) => {
+        console.error('FileReader error:', error);
+        alert('Failed to read file');
+        setUploadingImage(false);
+      };
+
     } catch (error) {
       console.error('Upload error:', error);
       alert('Failed to upload image');
-    } finally {
       setUploadingImage(false);
     }
   }

@@ -14,6 +14,7 @@ import supabase from "@/lib/db";
 import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 import { uploadImageFromBase64, deleteFromCloudinary } from "./cloudinary";
+import { notifyRole } from "@/app/actions/notifications";
 
 /**
  * Represents the main Product object structure.
@@ -185,6 +186,12 @@ export async function createProduct(formData: FormData) {
     // Refresh relevant pages to show the new product
     revalidatePath("/catalog/products");
     revalidatePath("/admin/catalog/products");
+    revalidatePath("/notifications");
+
+    // Dynamic Notifications to Stakeholders
+    await notifyRole("supervisor", "New Product Added", `The product "${name}" has been added to the catalog.`);
+    await notifyRole("salesman", "New Product Added", `The product "${name}" is now available for ordering.`);
+
     return { success: true };
   } catch (error: any) {
     return { error: error.message || "Failed to create product." };

@@ -2,6 +2,7 @@
 import supabase from "@/lib/db";
 import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
+import { notifyRole, createNotification } from "@/app/actions/notifications";
 
 export interface SalesTransactionRow {
   id: string;
@@ -131,6 +132,8 @@ export async function createBooking(input: CreateBookingInput) {
     const { customer_id, salesman_id, notes, items } = input;
     const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
     const transactionId = generateUUID();
+    
+    // 1. Create the sales transaction record
     const { error: txError } = await supabase.from("sales_transactions").insert({
       id: transactionId,
       customer_id,
@@ -141,6 +144,7 @@ export async function createBooking(input: CreateBookingInput) {
     });
     if (txError) throw txError;
 
+    // 2. Insert transaction items and immediately deduct inventory
     if (items.length > 0) {
       const itemRows = items.map((item) => ({
         id: generateUUID(),
@@ -150,17 +154,64 @@ export async function createBooking(input: CreateBookingInput) {
         unit_price: item.unit_price,
         subtotal: item.quantity * item.unit_price,
       }));
-      await supabase.from("sales_transaction_items").insert(itemRows);
+      
+      const { error: itemsError } = await supabase.from("sales_transaction_items").insert(itemRows);
+      if (itemsError) throw itemsError;
+
+      // INVENTORY REDUCTION LOGIC (IMMEDIATE)
+      console.log(`[Inventory] Deducting stock for new booking ${transactionId}`);
+      for (const item of items) {
+        // A. Find product ID for this variant
+        const { data: variant, error: vError } = await supabase
+          .from("product_variants")
+          .select("product_id")
+          .eq("id", item.variant_id)
+          .single();
+
+        if (vError || !variant) continue;
+
+        // B. Get current stock
+        const { data: product, error: pError } = await supabase
+          .from("products")
+          .select("total_cases")
+          .eq("id", variant.product_id)
+          .single();
+
+        if (pError || !product) continue;
+
+        // C. Subtract and update
+        const currentCases = product.total_cases || 0;
+        const newCases = currentCases - item.quantity;
+        
+        await supabase
+          .from("products")
+          .update({ total_cases: newCases })
+          .eq("id", variant.product_id);
+      }
     }
 
+    // 3. Dispatch Notifications
+    await notifyRole("admin", "New Order Created", `A new order has been placed by Salesman.`);
+    await notifyRole("supervisor", "New Order Created", `A new order has been placed by Salesman.`);
+
+    // 4. Clear caches for everyone
     revalidatePath("/salesman/dashboard");
+    revalidatePath("/bookings");
+    revalidatePath("/notifications");
     revalidatePath("/sales");
+    revalidatePath("/admin/sales");
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/catalog/products");
+    revalidatePath("/supervisor/catalog/products");
+    
     return { success: true, data: { id: transactionId } };
+
   } catch (error: any) {
     console.error("createBooking error:", error);
     return { success: false, error: error.message };
   }
 }
+
 
 export async function getAllBookings() {
   try {
@@ -207,19 +258,118 @@ export async function getAllBookings() {
 
 export async function updateBookingStatus(transactionId: string, status: string) {
   try {
-    const updateData: any = { status };
+    console.log(`[Inventory] Updating transaction ${transactionId} to ${status}`);
 
-    const { error } = await supabase
+    // 1. Fetch current status to check transition (Prevents double deduction)
+    const { data: currentTx, error: fetchError } = await supabase
       .from("sales_transactions")
-      .update(updateData)
-      .eq("id", transactionId);
-    if (error) throw error;
+      .select("status, salesman_id")
+      .eq("id", transactionId)
+      .single();
 
+    if (fetchError) {
+      console.error("[Inventory] Failed to fetch current transaction status:", fetchError);
+      throw fetchError;
+    }
+
+    console.log(`[Inventory] Current status is: ${currentTx?.status}`);
+
+    // 2. Perform the status update in the DB
+    const { error: updateError } = await supabase
+      .from("sales_transactions")
+      .update({ status })
+      .eq("id", transactionId);
+      
+    if (updateError) {
+      console.error("[Inventory] Failed to update transaction status:", updateError);
+      throw updateError;
+    }
+
+    // -> Notify the Salesman!
+    if (currentTx?.salesman_id && currentTx.status !== status) {
+      await createNotification(
+        currentTx.salesman_id,
+        "Order Status Updated",
+        `Your order has been updated to: ${status.toUpperCase()}.`,
+        status === "cancelled" ? "warning" : "success"
+      );
+    }
+
+
+    /**
+     * INVENTORY RESTORATION LOGIC
+     * Since inventory is now deducted immediately upon creation,
+     * we only need to act here if the order is CANCELLED.
+     */
+    const isNowCancelled = status.toLowerCase() === "cancelled";
+    const wasAlreadyCancelled = currentTx?.status?.toLowerCase() === "cancelled";
+
+    if (isNowCancelled && !wasAlreadyCancelled) {
+      console.log(`[Inventory] Status changed to CANCELLED. Restoring deduction...`);
+
+      // A. Fetch all items for this transaction
+      const { data: items, error: itemsError } = await supabase
+        .from("sales_transaction_items")
+        .select("variant_id, quantity")
+        .eq("transaction_id", transactionId);
+
+      if (itemsError) {
+        console.error("[Inventory] Failed to fetch transaction items:", itemsError);
+        throw itemsError;
+      }
+
+      if (items && items.length > 0) {
+        for (const item of items) {
+          // B. Get the parent product_id from the variant
+          const { data: variant, error: vError } = await supabase
+            .from("product_variants")
+            .select("product_id")
+            .eq("id", item.variant_id)
+            .single();
+
+          if (vError || !variant) continue;
+
+          // C. Get current stock
+          const { data: product, error: pError } = await supabase
+            .from("products")
+            .select("total_cases")
+            .eq("id", variant.product_id)
+            .single();
+
+          if (pError || !product) continue;
+
+          // D. Add back to stock
+          const oldStock = product.total_cases || 0;
+          const newStock = oldStock + item.quantity; // <-- PLUS here!
+
+          await supabase
+            .from("products")
+            .update({ total_cases: newStock })
+            .eq("id", variant.product_id);
+            
+          console.log(`[Inventory] Restored ${item.quantity} cases to product ${variant.product_id}.`);
+        }
+      }
+    }
+
+    // 3. Clear all potential caches
     revalidatePath("/bookings");
     revalidatePath("/sales");
+    revalidatePath("/notifications");
+    revalidatePath("/admin/sales");
+    revalidatePath("/admin/orders");
     revalidatePath("/salesman/bookings");
+    revalidatePath("/admin/catalog/products");
+    revalidatePath("/supervisor/catalog/products");
+    
+    console.log(`[Inventory] Update process finished for ${transactionId}`);
     return { success: true };
   } catch (error: any) {
+    console.error("[Inventory] CRITICAL ERROR in updateBookingStatus:", error);
     return { success: false, error: error.message };
   }
 }
+
+
+
+

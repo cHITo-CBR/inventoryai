@@ -1,5 +1,16 @@
 "use client";
 
+/**
+ * SALESMAN NEW BOOKING (ORDER) PAGE
+ * This is the transactional heart of the salesman role.
+ * It combines order creation with automated store visit logging.
+ * Features:
+ * - Dynamic Form: Add/remove multiple products to a single order.
+ * - Stock Validation: Warns the user if they order more than the current available inventory.
+ * - Automated Logging: Silently records a "Store Visit" when an order is placed.
+ * - Pricing: Auto-fills prices based on product variant selection.
+ */
+
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,19 +40,24 @@ function BookingForm() {
   const router = useRouter();
   const customerIdParam = searchParams.get("customerId");
 
+  // Lookup state
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [variants, setVariants] = useState<{ id: string; name: string; unit_price: number; sku: string | null; product_name?: string; total_cases?: number; packaging_price?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [userId, setUserId] = useState<string>("");
 
-  // Form State
+  // Transactional local state
   const [customerId, setCustomerId] = useState(customerIdParam || "");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<BookingItemInput[]>([
     { variant_id: "", quantity: 1, unit_price: 0 }
   ]);
 
+  /**
+   * DATA INITIALIZATION
+   * Loads the current salesman profile, customer list, and active catalog.
+   */
   useEffect(() => {
     async function load() {
       const [custData, varData, session] = await Promise.all([
@@ -57,14 +73,23 @@ function BookingForm() {
     load();
   }, []);
 
+  // UI interaction: Appends a blank item row
   const addItem = () => {
     setItems([...items, { variant_id: "", quantity: 1, unit_price: 0 }]);
   };
 
+  // UI interaction: Removes a specific item row
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
   };
 
+  /**
+   * ITEM UPDATE HANDLER
+   * This function manages the logic when a product or quantity is changed.
+   * - SKU Matching: Identifies specific product variants.
+   * - Auto-Pricing: Pulls the standard price from the catalog.
+   * - Stock Guard: Prevents ordering more than is available in the warehouse.
+   */
   const updateItem = (index: number, field: keyof BookingItemInput, value: any) => {
     const newItems = [...items];
     (newItems[index] as any)[field] = value;
@@ -76,7 +101,7 @@ function BookingForm() {
           newItems[index].unit_price = variant.unit_price || 0;
        }
     } 
-    // Warn if quantity exceeds stock
+    // INVENTORY CHECK: Warns if quantity exceeds current case balance
     else if (field === "quantity") {
        const variant = variants.find(v => v.id === newItems[index].variant_id);
        if (variant && variant.total_cases !== undefined && value > variant.total_cases) {
@@ -88,15 +113,23 @@ function BookingForm() {
     setItems(newItems);
   };
 
+  // Cumulative total for the bottom summary card
   const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
 
+  /**
+   * SUBMISSION WORKFLOW
+   * This is a multi-step operation:
+   * 1. Automated Visit Logging: Marks that the salesman successfully reached the store.
+   * 2. Order Submission: Pushes the booking items to the database.
+   * 3. Navigation: Returns user to the dashboard upon success.
+   */
   const handleSubmit = async () => {
     if (!customerId) return alert("Please select a store");
     if (items.some(it => !it.variant_id)) return alert("Select products for all items");
 
     setSubmitting(true);
     
-    // First, record the visit automatically since they pressed "Start Visit & Order"
+    // STEP 1: Record visit automatically (Background task)
     try {
       await createStoreVisit({
         salesman_id: userId,
@@ -107,6 +140,7 @@ function BookingForm() {
       console.error("Failed to record visit automatically:", err);
     }
 
+    // STEP 2: Create the formal sales booking
     const result = await createBooking({
       salesman_id: userId,
       customer_id: customerId,
@@ -132,6 +166,7 @@ function BookingForm() {
 
   return (
     <div className="space-y-6 pb-20">
+      {/* Navigation Header */}
       <div className="flex items-center gap-2">
         <Link href="/salesman/dashboard">
           <Button variant="ghost" size="icon" className="rounded-full">
@@ -141,6 +176,7 @@ function BookingForm() {
         <h2 className="text-xl font-bold text-gray-900">New Booking (Order)</h2>
       </div>
 
+      {/* CUSTOMER SELECTION AREA */}
       <Card className="border-0 shadow-sm rounded-2xl">
         <CardContent className="p-4 space-y-4">
           <div className="space-y-2">
@@ -159,6 +195,9 @@ function BookingForm() {
         </CardContent>
       </Card>
 
+      {/* LINE ITEMS LIST
+          Each card represents a product variant being added to the order.
+      */}
       <div className="space-y-3">
          <div className="flex items-center justify-between px-1">
             <h3 className="text-sm font-bold text-gray-700 uppercase">Order Items</h3>
@@ -212,6 +251,7 @@ function BookingForm() {
          ))}
       </div>
 
+      {/* FINAL TRANSACTION SUMMARY */}
       <Card className="border-0 shadow-sm rounded-2xl bg-[#005914] text-white">
          <CardContent className="p-4 flex justify-between items-center">
             <p className="text-sm font-medium opacity-90 uppercase">Total Order Value</p>
@@ -219,6 +259,7 @@ function BookingForm() {
          </CardContent>
       </Card>
 
+      {/* ORDER METADATA / FEEDBACK */}
       <Card className="border-0 shadow-sm rounded-2xl">
          <CardContent className="p-4 space-y-2">
             <Label className="text-xs font-semibold text-gray-500 uppercase">Order Feedback</Label>
@@ -231,6 +272,7 @@ function BookingForm() {
          </CardContent>
       </Card>
 
+      {/* PRIMARY CTA: SUBMIT ORDER */}
       <Button 
          className="w-full h-14 rounded-2xl bg-orange-600 hover:bg-orange-700 gap-2 font-bold shadow-lg shadow-orange-900/10"
          onClick={handleSubmit}
@@ -243,6 +285,10 @@ function BookingForm() {
   );
 }
 
+/**
+ * PAGE ENTRY POINT
+ * Wrapped in Suspense to handle useSearchParams hook requirements for static generation.
+ */
 export default function NewBookingPage() {
   return (
     <Suspense fallback={<Loader2 className="w-8 h-8 animate-spin text-[#005914]" />}>
@@ -250,3 +296,4 @@ export default function NewBookingPage() {
     </Suspense>
   );
 }
+

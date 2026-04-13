@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * SALESMAN DASHBOARD PAGE
+ * This is the primary mobile-first interface for field agents.
+ * It focuses on daily operations:
+ * - Sales Quota Tracking: Real-time progress towards the monthly target.
+ * - Field Activity: Recording and viewing customer visits.
+ * - Quick Actions: Easy access to creating new visits and bookings.
+ */
+
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,6 +37,10 @@ export default function SalesmanDashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  /**
+   * DATA FETCHING
+   * Retrieves the current user profile and their specific performance metrics.
+   */
   useEffect(() => {
     async function load() {
       const session = await getCurrentUser();
@@ -40,6 +53,7 @@ export default function SalesmanDashboardPage() {
           getSalesmanRecentActivity(userId)
         ]);
         setKpis(kpiData);
+        // Combine and sort different activity types (visits, bookings, etc.)
         const combined = [
           ...(recentData?.visits || [])
         ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -50,6 +64,7 @@ export default function SalesmanDashboardPage() {
     load();
   }, []);
 
+  // Display a custom animated loader while data is being prepared
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -61,6 +76,7 @@ export default function SalesmanDashboardPage() {
     );
   }
 
+  // Helper for dynamic time-of-day greeting
   const greeting = () => {
     const h = new Date().getHours();
     if (h < 12) return "Good morning";
@@ -70,18 +86,22 @@ export default function SalesmanDashboardPage() {
 
   const currentMonthName = new Date().toLocaleString('default', { month: 'long' });
 
+  // configuration for the main statistic cards
   const kpiHighlights = [
     { label: "Today's Visits", value: kpis?.todayVisits ?? 0, icon: MapPin, gradient: "from-blue-500 to-cyan-400", bg: "bg-blue-50", ring: "ring-blue-100" },
     { label: "Bookings", value: kpis?.confirmedBookings ?? 0, icon: ShoppingBag, gradient: "from-emerald-500 to-green-400", bg: "bg-green-50", ring: "ring-green-100" },
   ];
 
+  // configuration for rapid field actions
   const quickActions = [
     { label: "New Visit", href: "/salesman/customers", icon: Plus, gradient: "from-[#005914] to-[#00802b]", shadow: "shadow-green-900/20" },
   ];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto relative">
-      {/* ═══ Hero Greeting ═══ */}
+      {/* ═══ PERSONALIZED GREETING & CONTEXT ═══ 
+          Shows the user name, date, and a visual brand avatar.
+      */}
       <div className="relative overflow-hidden rounded-3xl bg-[#005914] p-6 text-white shadow-xl shadow-green-900/10">
         <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
@@ -99,7 +119,9 @@ export default function SalesmanDashboardPage() {
           </div>
         </div>
 
-        {/* Dynamic Sales Target */}
+        {/* SALES QUOTA PROGRESS BAR
+            Visual representation of how much sales target has been achieved this month.
+        */}
         <div className="relative z-10 mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
           <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
             <Target className="w-5 h-5 text-green-200" />
@@ -125,7 +147,7 @@ export default function SalesmanDashboardPage() {
         </div>
       </div>
 
-      {/* ═══ KPI Cards ═══ */}
+      {/* FIELD KPI CARDS */}
       <div className="grid grid-cols-3 gap-3">
         {kpiHighlights.map((kpi, i) => (
           <Card key={kpi.label} className={`border-0 shadow-lg rounded-2xl overflow-hidden ring-1 ${kpi.ring} animate-in fade-in slide-in-from-bottom-2`} style={{ animationDelay: `${i * 100}ms` }}>
@@ -140,7 +162,7 @@ export default function SalesmanDashboardPage() {
         ))}
       </div>
 
-      {/* ═══ Quick Actions ═══ */}
+      {/* QUICK FIELD ACTIONS */}
       <div className="space-y-3">
         <div className="flex items-center gap-2 px-1">
           <Zap className="w-4 h-4 text-amber-500" />
@@ -158,7 +180,9 @@ export default function SalesmanDashboardPage() {
         </div>
       </div>
 
-      {/* ═══ Recent Activity ═══ */}
+      {/* ACTIVITY FEED
+          Shows recent interactions with stores/customers.
+      */}
       <Card className="border-0 shadow-lg rounded-2xl ring-1 ring-gray-100">
         <CardHeader className="pb-2 px-5 pt-5">
           <CardTitle className="text-sm font-black text-gray-900 uppercase tracking-wider flex items-center gap-2">
@@ -190,3 +214,4 @@ export default function SalesmanDashboardPage() {
     </div>
   );
 }
+

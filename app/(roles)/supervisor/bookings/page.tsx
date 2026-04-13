@@ -1,5 +1,14 @@
 "use client";
 
+/**
+ * SUPERVISOR BOOKINGS MONITORING PAGE
+ * This page allows supervisors to oversee all sales activities within their team.
+ * Key responsibilities:
+ * - Monitoring: Tracking real-time orders submitted by field salesmen.
+ * - Validation: Reviewing store names and transaction amounts.
+ * - Oversight: Filtering orders by status (pending, approved, delivered) to ensure smooth operations.
+ */
+
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -7,6 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Search, Inbox } from "lucide-react";
 import { getTeamBookings } from "@/app/actions/supervisor-actions";
 
+/**
+ * Color mapping for different booking statuses of the team.
+ */
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-50 text-yellow-700",
   approved: "bg-blue-50 text-blue-700",
@@ -22,10 +34,21 @@ export default function SupervisorBookingsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
+  /**
+   * DATA SYNCHRONIZATION
+   * Fetches all bookings associated with the supervisor's assigned team members.
+   */
   useEffect(() => {
-    getTeamBookings().then((data) => { setBookings(data); setLoading(false); });
+    getTeamBookings().then((data) => { 
+      setBookings(data); 
+      setLoading(false); 
+    });
   }, []);
 
+  /**
+   * FILTERING ENGINE
+   * Dynamically filters the team bookings based on salesman name, store name, or status.
+   */
   const filtered = bookings.filter(b => {
     const matchSearch = (b.customers?.store_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (b.users?.full_name || "").toLowerCase().includes(search.toLowerCase());
@@ -33,15 +56,20 @@ export default function SupervisorBookingsPage() {
     return matchSearch && matchStatus;
   });
 
+  // Loading state with brand-consistent spinner
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="w-8 h-8 animate-spin text-[#005914]" /></div>;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Header section with cumulative counts */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">Bookings / Orders Monitoring</h1>
         <p className="text-gray-500 text-sm">{bookings.length} orders from your team.</p>
       </div>
 
+      {/* QUICK STATUS FILTERS
+          Allows switching between different phases of the order lifecycle.
+      */}
       <div className="flex flex-wrap gap-2">
         {["all", "pending", "approved", "preparing", "delivered", "cancelled"].map((s) => (
           <button key={s} onClick={() => setStatusFilter(s)} className={`px-3 py-1.5 text-xs font-bold rounded-lg capitalize transition-all ${statusFilter === s ? "bg-[#005914] text-white" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"}`}>
@@ -50,6 +78,9 @@ export default function SupervisorBookingsPage() {
         ))}
       </div>
 
+      {/* GLOBAL SEARCH INPUT
+          Enables quick lookup by Salesman name or Store/Customer ID.
+      */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
         <Input placeholder="Search stores or salesmen..." className="pl-10 bg-white border-gray-200 rounded-xl" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -62,6 +93,7 @@ export default function SupervisorBookingsPage() {
               <Inbox className="w-10 h-10 mb-2" /><p className="text-sm font-medium">No orders found</p>
             </div>
           ) : (
+            /* TEAM ORDERS SUMMARY TABLE */
             <Table>
               <TableHeader className="bg-gray-50/50">
                 <TableRow>
@@ -92,3 +124,4 @@ export default function SupervisorBookingsPage() {
     </div>
   );
 }
+
