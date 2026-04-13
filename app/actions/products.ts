@@ -1,9 +1,23 @@
 "use server";
+
+/**
+ * PRODUCT MANAGEMENT ACTIONS
+ * This file handles the core inventory catalog.
+ * Operations include:
+ * - Fetching active and archived products
+ * - Creating products with image uploads (Cloudinary)
+ * - Managing product variants (different sizes/packaging)
+ * - Archiving and restoring products
+ */
+
 import supabase from "@/lib/db";
 import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 import { uploadImageFromBase64, deleteFromCloudinary } from "./cloudinary";
 
+/**
+ * Represents the main Product object structure.
+ */
 export interface ProductRow {
   id: string;
   name: string;
@@ -22,8 +36,15 @@ export interface ProductRow {
   packaging_type_name?: string | null;
   total_packaging?: string | null;
   net_weight?: string | null;
+  // Included from joined tables for compatibility with older UI components
+  product_categories?: { name: string } | null;
+  brands?: { name: string } | null;
+  packaging_types?: { name: string; description: string | null } | null;
 }
 
+/**
+ * Represents a variation of a product (e.g., different pack sizes).
+ */
 export interface ProductVariantRow {
   id?: string;
   product_id?: string;
@@ -35,6 +56,10 @@ export interface ProductVariantRow {
   is_active: boolean;
 }
 
+/**
+ * Fetches all non-archived products.
+ * Includes related details like brand and category using Supabase joins.
+ */
 export async function getProducts(search?: string): Promise<ProductRow[]> {
   try {
     let query = supabase
@@ -45,9 +70,10 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
         brands(name),
         packaging_types(name, description)
       `)
-      .eq("is_archived", false)
+      .eq("is_archived", false) // Exclude items in the trash
       .order("created_at", { ascending: false });
 
+    // Apply search filter if provided
     if (search && search.trim()) {
       query = query.ilike("name", `%${search}%`);
     }
@@ -55,6 +81,7 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
     const { data: products, error } = await query;
     if (error) throw error;
 
+    // Format the result to flatten joined table values
     return (products || []).map((p: any) => ({
       ...p,
       category_name: p.product_categories?.name || null,
@@ -70,7 +97,12 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
   }
 }
 
+/**
+ * Creates a new product and its initial variants.
+ * Handles base64 image uploads to Cloudinary storage.
+ */
 export async function createProduct(formData: FormData) {
+  // Extract data from the form
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const categoryId = formData.get("categoryId") as string;
@@ -81,7 +113,7 @@ export async function createProduct(formData: FormData) {
   const totalPackaging = formData.get("totalPackaging") as string;
   const netWeight = formData.get("netWeight") as string;
   const imageUrl = formData.get("imageUrl") as string;
-  const imageFile = formData.get("imageFile") as string;
+  const imageFile = formData.get("imageFile") as string; // Base64 string from client
   const variantsJSON = formData.get("variants") as string;
 
   if (!name) return { error: "Product name is required." };
@@ -89,7 +121,7 @@ export async function createProduct(formData: FormData) {
   try {
     const productId = generateUUID();
 
-    // Handle image upload to Cloudinary
+    // UPLOAD IMAGE TO CLOUDINARY
     let finalImageUrl = imageUrl || null;
     if (imageFile && imageFile.startsWith("data:image")) {
       const uploadResult = await uploadImageFromBase64(imageFile, "products");
@@ -98,6 +130,7 @@ export async function createProduct(formData: FormData) {
       }
     }
 
+    // SAVING THE CORE PRODUCT
     const { error: insertError } = await supabase.from("products").insert({
       id: productId,
       name,
@@ -116,7 +149,7 @@ export async function createProduct(formData: FormData) {
 
     if (insertError) throw insertError;
 
-    // Handle variants
+    // HANDLING VARIANTS
     let variants: ProductVariantRow[] = [];
     try {
       if (variantsJSON) variants = JSON.parse(variantsJSON);
@@ -125,6 +158,7 @@ export async function createProduct(formData: FormData) {
     }
 
     if (variants.length > 0) {
+      // Create specialized variants if provided
       const variantRows = variants.map((v) => ({
         id: generateUUID(),
         product_id: productId,
@@ -137,6 +171,7 @@ export async function createProduct(formData: FormData) {
       }));
       await supabase.from("product_variants").insert(variantRows);
     } else {
+      // Create a default 'Standard' variant if none were specified
       await supabase.from("product_variants").insert({
         id: generateUUID(),
         product_id: productId,
@@ -147,6 +182,7 @@ export async function createProduct(formData: FormData) {
       });
     }
 
+    // Refresh relevant pages to show the new product
     revalidatePath("/catalog/products");
     revalidatePath("/admin/catalog/products");
     return { success: true };
@@ -155,6 +191,9 @@ export async function createProduct(formData: FormData) {
   }
 }
 
+/**
+ * Retrieves products that have been moved to the archives (Trash).
+ */
 export async function getArchivedProducts(): Promise<ProductRow[]> {
   try {
     const { data: products, error } = await supabase
@@ -185,6 +224,9 @@ export async function getArchivedProducts(): Promise<ProductRow[]> {
   }
 }
 
+/**
+ * Soft-deletes a product by moving it to the archive.
+ */
 export async function archiveProduct(id: string) {
   try {
     const { error } = await supabase
@@ -199,6 +241,9 @@ export async function archiveProduct(id: string) {
   }
 }
 
+/**
+ * Restores a previously archived product back to the active catalog.
+ */
 export async function restoreProduct(id: string) {
   try {
     const { error } = await supabase
@@ -213,6 +258,9 @@ export async function restoreProduct(id: string) {
   }
 }
 
+/**
+ * Updates an existing product's details and synchronizes its variants.
+ */
 export async function updateProduct(id: string, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -247,12 +295,12 @@ export async function updateProduct(id: string, formData: FormData) {
 
     if (updateError) throw updateError;
 
-    // Handle variants synchronization
+    // SYNC VARIANTS (Add new, Update existing, Delete removed)
     if (variantsJSON) {
       try {
         const variants: ProductVariantRow[] = JSON.parse(variantsJSON);
 
-        // Get existing variants
+        // Get existing variants to determine what to delete
         const { data: existingVariants } = await supabase
           .from("product_variants")
           .select("id")
@@ -261,15 +309,16 @@ export async function updateProduct(id: string, formData: FormData) {
         const existingIds = (existingVariants || []).map((v: any) => v.id);
         const incomingIds = variants.map((v) => v.id).filter(Boolean) as string[];
 
-        // Delete removed variants
+        // Delete variants that were removed from the UI
         const toDelete = existingIds.filter((eid: string) => !incomingIds.includes(eid));
         if (toDelete.length > 0) {
           await supabase.from("product_variants").delete().in("id", toDelete);
         }
 
-        // Upsert variants
+        // Add or Update variants
         for (const v of variants) {
           if (v.id) {
+            // Update existing
             await supabase
               .from("product_variants")
               .update({
@@ -283,6 +332,7 @@ export async function updateProduct(id: string, formData: FormData) {
               })
               .eq("id", v.id);
           } else {
+            // Insert new
             await supabase.from("product_variants").insert({
               id: generateUUID(),
               product_id: id,
@@ -308,6 +358,9 @@ export async function updateProduct(id: string, formData: FormData) {
   }
 }
 
+/**
+ * Fetches all active variants for a specific product.
+ */
 export async function getProductVariantsByProductId(productId: string): Promise<ProductVariantRow[]> {
   try {
     const { data, error } = await supabase
@@ -325,6 +378,10 @@ export async function getProductVariantsByProductId(productId: string): Promise<
   }
 }
 
+/**
+ * Fetches all product variants across the entire catalog.
+ * Useful for order forms where you select from a combined list.
+ */
 export async function getProductVariants(): Promise<{ id: string; name: string; unit_price: number; sku: string | null; product_name?: string; total_cases?: number; packaging_price?: number }[]> {
   try {
     const { data, error } = await supabase
@@ -335,11 +392,11 @@ export async function getProductVariants(): Promise<{ id: string; name: string; 
 
     if (error) throw error;
     
-    // Map the response to include the product's actual fields for easier rendering
+    // Map the response to flatten the product relationship
     return (data || []).map((v: any) => ({
       id: v.id,
       name: v.name,
-      unit_price: v.products?.packaging_price || v.unit_price, // use packaging price as case price if available
+      unit_price: v.products?.packaging_price || v.unit_price, // Use case price as default
       sku: v.sku,
       product_name: v.products?.name || v.name,
       total_cases: v.products?.total_cases || 0
@@ -349,3 +406,4 @@ export async function getProductVariants(): Promise<{ id: string; name: string; 
     return [];
   }
 }
+

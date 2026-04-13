@@ -1,8 +1,21 @@
 "use server";
+
+/**
+ * CUSTOMER MANAGEMENT ACTIONS
+ * This file handles all operations related to customer/store profiles.
+ * Features:
+ * - Fetching customer lists and unified statistics
+ * - Creating and updating customer profiles
+ * - Assigning customers to specific salesmen
+ */
+
 import supabase from "@/lib/db";
 import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Represents a customer/store record.
+ */
 export interface CustomerRow {
   id: string;
   store_name: string;
@@ -14,14 +27,21 @@ export interface CustomerRow {
   region: string | null;
   is_active: boolean;
   created_at: string;
-  salesman_name?: string | null;
+  salesman_name?: string | null; // Joined name of the assigned salesman
 }
 
+/**
+ * High-level counts for dashboard overview cards.
+ */
 export interface CustomerStats {
   totalActive: number;
   newThisMonth: number;
 }
 
+/**
+ * Retrieves all active customers from the database.
+ * Includes the name of the salesman assigned to each store.
+ */
 export async function getCustomers(): Promise<CustomerRow[]> {
   try {
     const { data, error } = await supabase
@@ -31,6 +51,7 @@ export async function getCustomers(): Promise<CustomerRow[]> {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
+    // Map joined user data to a flatter structure
     return (data || []).map((c: any) => ({
       ...c,
       salesman_name: c.users?.full_name || null,
@@ -41,8 +62,12 @@ export async function getCustomers(): Promise<CustomerRow[]> {
   }
 }
 
+/**
+ * Calculates quick stats for the customers dashboard.
+ */
 export async function getCustomerStats(): Promise<CustomerStats> {
   try {
+    // Count total active stores
     const { count: totalActive } = await supabase
       .from("customers")
       .select("*", { count: "exact", head: true })
@@ -52,6 +77,7 @@ export async function getCustomerStats(): Promise<CustomerStats> {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
+    // Count stores registered within the current calendar month
     const { count: newThisMonth } = await supabase
       .from("customers")
       .select("*", { count: "exact", head: true })
@@ -67,6 +93,9 @@ export async function getCustomerStats(): Promise<CustomerStats> {
   }
 }
 
+/**
+ * Creates a new customer profile.
+ */
 export async function createCustomer(formData: FormData) {
   const storeName = formData.get("storeName") as string;
   const contactPerson = formData.get("contactPerson") as string;
@@ -101,6 +130,9 @@ export async function createCustomer(formData: FormData) {
   }
 }
 
+/**
+ * Fetches a list of active salesmen available for store assignment.
+ */
 export async function getSalesmenForAssignment(): Promise<{ id: string; full_name: string }[]> {
   try {
     const { data, error } = await supabase
@@ -116,8 +148,9 @@ export async function getSalesmenForAssignment(): Promise<{ id: string; full_nam
   }
 }
 
-
-
+/**
+ * Retrieves the specific list of customers assigned to a particular salesman.
+ */
 export async function getSalesmanCustomers(salesmanId: string): Promise<CustomerRow[]> {
   try {
     const { data, error } = await supabase
@@ -137,6 +170,9 @@ export async function getSalesmanCustomers(salesmanId: string): Promise<Customer
   }
 }
 
+/**
+ * Fetches customers who haven't been assigned to any salesman yet.
+ */
 export async function getUnassignedCustomers(): Promise<CustomerRow[]> {
   try {
     const { data, error } = await supabase
@@ -153,6 +189,9 @@ export async function getUnassignedCustomers(): Promise<CustomerRow[]> {
   }
 }
 
+/**
+ * Updates a store's assignment to a new salesman.
+ */
 export async function assignCustomerToSalesman(customerId: string, salesmanId: string) {
   try {
     const { error } = await supabase
@@ -168,6 +207,9 @@ export async function assignCustomerToSalesman(customerId: string, salesmanId: s
   }
 }
 
+/**
+ * Updates the profile information for an existing customer.
+ */
 export async function updateCustomer(id: string, formData: FormData) {
   const storeName = formData.get("storeName") as string;
   const contactPerson = formData.get("contactPerson") as string;
@@ -176,7 +218,6 @@ export async function updateCustomer(id: string, formData: FormData) {
   const address = formData.get("address") as string;
   const city = formData.get("city") as string;
   const region = formData.get("region") as string;
-  // Note: we can optionally update assignedSalesmanId too, but let's stick to base details
 
   if (!id) return { error: "Customer ID is required." };
   if (!storeName) return { error: "Store name is required." };
@@ -196,6 +237,7 @@ export async function updateCustomer(id: string, formData: FormData) {
       .eq("id", id);
 
     if (error) throw error;
+    // Rebuild the cached pages to show the updated data
     revalidatePath(`/admin/customers/${id}`);
     revalidatePath("/admin/customers");
     return { success: true };
@@ -203,3 +245,4 @@ export async function updateCustomer(id: string, formData: FormData) {
     return { error: error.message || "Failed to update customer." };
   }
 }
+

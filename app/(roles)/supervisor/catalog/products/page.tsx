@@ -125,9 +125,7 @@ export default function ProductCatalogPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="categoryId">Category</Label>
-              <Select name="categoryId" defaultValue={
-                editingProduct ? categories.find(c => c.name === editingProduct.category_name)?.id.toString() : undefined
-              }>
+              <Select name="categoryId" defaultValue={editingProduct?.category_id?.toString() || ""}>
                 <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
@@ -138,9 +136,7 @@ export default function ProductCatalogPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="brandId">Brand</Label>
-              <Select name="brandId" defaultValue={
-                editingProduct ? brands.find(b => b.name === editingProduct.brand_name)?.id.toString() : undefined
-              }>
+              <Select name="brandId" defaultValue={editingProduct?.brand_id?.toString() || ""}>
                 <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
                 <SelectContent>
                   {brands.map((b) => (

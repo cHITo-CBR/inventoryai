@@ -1,8 +1,22 @@
 "use server";
+
+/**
+ * CATALOG CONFIGURATION ACTIONS
+ * This file handles the organizational data for the inventory system:
+ * 1. Categories (e.g., Canned Goods, Condiments)
+ * 2. Brands (e.g., Century Tuna, 555)
+ * 3. Units (e.g., Piece, Pack, Bundle)
+ * 4. Packaging Types (e.g., Tin Can, Pouch)
+ */
+
 import supabase from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-// ── Categories ──────────────────────────────────────────────
+// ── CATEGORIES MANAGEMENT ──────────────────────────────────────────────
+/**
+ * CRUD operations for product categories.
+ * Allows organizing products into high-level groups.
+ */
 export interface CategoryRow {
   id: number;
   name: string;
@@ -122,7 +136,11 @@ export async function deleteCategory(id: number) {
   }
 }
 
-// ── Brands ──────────────────────────────────────────────────
+// ── BRANDS MANAGEMENT ──────────────────────────────────────────────────
+/**
+ * CRUD operations for brands.
+ * Allows filtering products by their manufacturer/brand name.
+ */
 export interface BrandRow {
   id: number;
   name: string;
@@ -239,7 +257,10 @@ export async function deleteBrand(id: number) {
   }
 }
 
-// ── Units ──────────────────────────────────────────────────
+// ── UNITS MANAGEMENT ──────────────────────────────────────────────────
+/**
+ * CRUD operations for measurement units.
+ */
 export interface UnitRow {
   id: number;
   name: string;
@@ -356,7 +377,10 @@ export async function deleteUnit(id: number) {
   }
 }
 
-// ── Packaging Types ────────────────────────────────────────
+// ── PACKAGING TYPES MANAGEMENT ────────────────────────────────────────
+/**
+ * CRUD operations for product packaging configurations.
+ */
 export interface PackagingRow {
   id: number;
   name: string;
@@ -402,6 +426,7 @@ export async function createPackagingType(formData: FormData) {
 
   let name = packaging;
   let description = null;
+  // Parse 'Name - Description' format if present
   if (packaging.includes(" - ")) {
     const parts = packaging.split(" - ");
     name = parts[0].trim();
@@ -493,3 +518,4 @@ export async function deletePackagingType(id: number) {
     return { error: error.message || "Failed to delete packaging type." };
   }
 }
+

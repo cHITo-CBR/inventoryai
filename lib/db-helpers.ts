@@ -1,67 +1,68 @@
 import supabase from "./db";
 
 /**
- * Generate a UUID v4
+ * DATABASE HELPERS
+ * This file provides utility functions for common database operations,
+ * identifier generation, and compatibility layers between the old MySQL logic 
+ * and the new Supabase (PostgreSQL) implementation.
+ */
+
+/**
+ * Generates a unique identifier (UUID v4) for new database records.
+ * Uses the built-in web crypto API for cryptographically strong random IDs.
+ * @returns A string like '550e8400-e29b-41d4-a716-446655440000'
  */
 export function generateUUID(): string {
   return crypto.randomUUID();
 }
 
 /**
- * No-op conversions: PostgreSQL uses native booleans, so no conversion needed.
- * Kept for backward compatibility with existing code that calls these.
+ * UTILITY: Boolean Converters
+ * These help interpret truthy/falsy values from various inputs.
+ * Since PostgreSQL handles native booleans, these are mostly for data cleaning.
  */
 export function toBoolean(value: any): boolean {
   return value === true || value === 1 || value === "true";
 }
 
 export function fromBoolean(value: boolean): boolean {
-  return value;
+  return value; // Direct return as Supabase/Postgres uses native boolean
 }
 
 /**
- * The Supabase client instance for direct use in server actions.
- * Replaces the old query/queryOne/insert/update/remove pattern.
+ * EXPORT DATABASE CLIENT
+ * Re-exports the initialized Supabase client so it can be imported 
+ * from db-helpers for convenience in server actions.
  */
 export { supabase };
 
 // ──────────────────────────────────────────────────────────────
-// Legacy-compatible helper functions
-// These wrap Supabase queries to maintain a similar API to the old MySQL helpers.
-// However, most refactored actions will use supabase directly.
+// SEARCH HELPERS
+// Utility functions to facilitate case-insensitive searching in PostgreSQL.
 // ──────────────────────────────────────────────────────────────
 
 /**
- * Execute a raw SQL query via Supabase's rpc or the REST API.
- * Note: For most operations, use supabase.from() instead.
- */
-export async function rawQuery<T = any>(
-  sql: string,
-  params: any[] = []
-): Promise<T[]> {
-  // This is a fallback — direct SQL not recommended with Supabase JS.
-  // Use supabase.from('table').select() etc. instead.
-  throw new Error("rawQuery is deprecated. Use supabase.from() methods instead.");
-}
-
-/**
- * Build case-insensitive LIKE search (for Supabase ilike)
+ * Prepares a search term for use with PostgreSQL's 'ilike' (case-insensitive search).
+ * It escapes special characters like '%' and '_' to prevent search injections.
+ * @param column - The database column name
+ * @param searchTerm - The user-provided search string
+ * @returns An escaped search pattern like '%search_term%'
  */
 export function buildIlikeSearch(column: string, searchTerm: string): string {
-  // Escape special characters in the search term
-  const escaped = searchTerm.replace(/[%_\\]/g, "\\$&");
+  const escaped = searchTerm.replace(/[%_\\]/g, "\\$&"); // Escape %, _ and \
   return `%${escaped}%`;
 }
 
 /**
- * Escape LIKE pattern for safe searching
+ * Escapes special characters in a string for use in a 'LIKE' comparison.
  */
 export function escapeLike(value: string): string {
   return value.replace(/[%_\\]/g, "\\$&");
 }
 
 /**
- * Build case-insensitive LIKE search pattern
+ * Legacy SEARCH Builder
+ * Included for transition compatibility with older parts of the system.
  */
 export function buildLikeSearch(column: string, searchTerm: string): {
   condition: string;
@@ -69,7 +70,20 @@ export function buildLikeSearch(column: string, searchTerm: string): {
 } {
   const escaped = escapeLike(searchTerm);
   return {
-    condition: `${column} ILIKE $1`,
+    condition: `${column} ILIKE $1`, // ILIKE is Postgres-specific for case-insensitive
     value: `%${escaped}%`,
   };
 }
+
+/**
+ * DEPRECATED: Raw SQL Execution
+ * Direct SQL queries are discouraged in Supabase; use the object-oriented 
+ * .from('table').select() API instead for better type safety and security.
+ */
+export async function rawQuery<T = any>(
+  sql: string,
+  params: any[] = []
+): Promise<T[]> {
+  throw new Error("rawQuery is deprecated. Use supabase.from() methods instead.");
+}
+
