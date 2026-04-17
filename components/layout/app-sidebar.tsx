@@ -70,7 +70,7 @@ const operationsItems = [
 ];
 
 const fieldSalesItems = [
-  { title: "Order Management", path: "/orders", icon: ShoppingBag, countKey: "orders" as const },
+  { title: "Order Management", path: "/orders", icon: ShoppingBag, hideFromSalesman: true, countKey: "orders" as const },
 ];
 
 const analyticsItems = [
@@ -142,6 +142,7 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
     const filteredItems = section.items.filter((item) => {
       if (user?.role !== "admin" && (item as any).adminOnly) return false;
       if (user?.role !== "supervisor" && (item as any).supervisorOnly) return false;
+      if (user?.role === "salesman" && (item as any).hideFromSalesman) return false;
       if (item.path === "/dashboard" && user?.role !== "admin" && user?.role !== "supervisor" && user?.role !== "salesman") return false;
       return true;
     });
