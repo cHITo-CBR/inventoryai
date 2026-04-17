@@ -1,86 +1,211 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, TrendingUp, Lightbulb, Loader2, Inbox } from "lucide-react";
+import { Sparkles, TrendingUp, Lightbulb, Loader2, Inbox, Send, Bot, User } from "lucide-react";
 import { getAIInsights, type AIInsightRow } from "@/app/actions/ai-insights";
 
+interface Message {
+  role: "user" | "ai";
+  text: string;
+  id: string;
+}
+
 export default function AIInsightsPage() {
+  // Existing insights state
   const [insights, setInsights] = useState<AIInsightRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingInsights, setLoadingInsights] = useState(true);
+
+  // Chat state
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: "ai",
+      text: "Hello! I'm your Inventory Assistant. You can ask me about stock levels, top salesmen, or recent sales summaries.",
+      id: "initial",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getAIInsights().then((data) => {
       setInsights(data);
-      setLoading(false);
+      setLoadingInsights(false);
     });
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#005914]" />
-      </div>
-    );
-  }
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = {
+      role: "user",
+      text: input,
+      id: Date.now().toString(),
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    try {
+      const res = await fetch("/api/ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input }),
+      });
+
+      const data = await res.json();
+
+      const aiMessage: Message = {
+        role: "ai",
+        text: data.reply || "I'm sorry, I couldn't process that request.",
+        id: (Date.now() + 1).toString(),
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Chat Error:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          text: "System error: Unable to reach the AI service.",
+          id: (Date.now() + 1).toString(),
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   function getIcon(type: string) {
-    if (type === "restock" || type === "prediction") return <TrendingUp className="w-5 h-5" />;
-    if (type === "anomaly" || type === "performance") return <Lightbulb className="w-5 h-5" />;
-    return <Sparkles className="w-5 h-5" />;
-  }
-
-  function getColors(type: string) {
-    if (type === "restock" || type === "prediction") return { bg: "from-green-50 to-white", border: "border-green-100/50", title: "text-[#005914]" };
-    if (type === "anomaly" || type === "performance") return { bg: "from-blue-50 to-white", border: "border-blue-100/50", title: "text-blue-800" };
-    return { bg: "from-purple-50 to-white", border: "border-purple-100/50", title: "text-purple-800" };
+    if (type === "restock" || type === "prediction") return <TrendingUp className="w-4 h-4" />;
+    if (type === "anomaly" || type === "performance") return <Lightbulb className="w-4 h-4" />;
+    return <Sparkles className="w-4 h-4" />;
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto p-4 md:p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-[#005914]" />
-            AI Insights & Forecasting
+            AI Insights & Chat
           </h1>
-          <p className="text-gray-500 text-sm">Leverage AI to predict restock needs and analyze performance.</p>
+          <p className="text-gray-500 text-sm">Analyze inventory data and predict restock needs with Gemini AI.</p>
         </div>
       </div>
 
-      {insights.length === 0 ? (
-        <Card className="shadow-sm border-0 rounded-xl">
-          <CardContent className="py-16">
-            <div className="flex flex-col items-center justify-center text-gray-400">
-              <Inbox className="w-12 h-12 mb-3" />
-              <p className="text-sm font-medium">No AI insights available yet</p>
-              <p className="text-xs mt-1">Insights will appear as the system analyzes your data.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Chat Interface (Main) */}
+        <div className="lg:col-span-2 flex flex-col h-[600px] bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden relative">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 no-scrollbar">
+            {messages.map((m) => (
+              <div
+                key={m.id}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div className={`flex max-w-[85%] gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                  <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
+                    m.role === "user" ? "bg-[#005914] text-white" : "bg-gray-100 text-gray-500"
+                  }`}>
+                    {m.role === "user" ? <User size={16} /> : <Bot size={16} />}
+                  </div>
+                  <div className={`px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
+                    m.role === "user"
+                      ? "bg-[#005914] text-white rounded-tr-none shadow-md"
+                      : "bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200"
+                  }`}>
+                    {m.text}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="flex gap-3">
+                  <div className="shrink-0 h-8 w-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center">
+                    <Loader2 size={16} className="animate-spin" />
+                  </div>
+                  <div className="px-4 py-3 rounded-2xl rounded-tl-none bg-gray-100 text-gray-400 text-sm italic">
+                    AI is thinking...
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-gray-50">
+            {["Show low stock products", "Who is the top salesman?", "Give me a sales summary"].map((q) => (
+              <button
+                key={q}
+                onClick={() => setInput(q)}
+                className="shrink-0 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-[10px] font-medium text-gray-600 hover:bg-green-50 hover:border-green-200 hover:text-[#005914] transition-all"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-4 border-t border-gray-100 bg-white">
+            <div className="relative group">
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                placeholder="Ask your assistant..."
+                className="w-full pl-6 pr-14 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-green-100 focus:bg-white transition-all shadow-inner"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim() || isLoading}
+                className="absolute right-2 top-2 bottom-2 w-10 bg-[#005914] text-white rounded-xl flex items-center justify-center hover:opacity-90 disabled:opacity-50 transition-all"
+              >
+                <Send size={16} />
+              </button>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {insights.map((insight) => {
-            const colors = getColors(insight.insight_type);
-            return (
-              <Card key={insight.id} className={`shadow-sm border-0 rounded-xl bg-gradient-to-br ${colors.bg}`}>
-                <CardHeader className={`py-4 border-b ${colors.border} flex flex-row items-center justify-between`}>
-                  <CardTitle className={`text-lg font-semibold ${colors.title} flex items-center gap-2`}>
-                    {getIcon(insight.insight_type)}
+          </div>
+        </div>
+
+        {/* Recent Insights Panel (Right) */}
+        <div className="flex flex-col gap-4 overflow-y-auto max-h-[600px] no-scrollbar">
+          <h3 className="text-sm font-bold text-gray-700 px-1 uppercase tracking-wider opacity-60">System Insights</h3>
+          {loadingInsights ? (
+            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-gray-300" /></div>
+          ) : insights.length === 0 ? (
+            <Card className="border-dashed border-2 bg-transparent shadow-none">
+              <CardContent className="py-8 text-center text-gray-400 text-xs">
+                No system insights yet.
+              </CardContent>
+            </Card>
+          ) : (
+            insights.map((insight) => (
+              <Card key={insight.id} className="shadow-sm border-gray-100 rounded-2xl overflow-hidden hover:border-green-200 transition-colors">
+                <CardHeader className="py-3 px-4 bg-gray-50/50 border-b border-gray-50 flex flex-row items-center gap-2">
+                  <div className="text-[#005914]">{getIcon(insight.insight_type)}</div>
+                  <CardTitle className="text-xs font-bold text-gray-800 uppercase tracking-tight">
                     {insight.title}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <p className="text-gray-700 leading-relaxed">{insight.description}</p>
-                  <span className="text-xs text-gray-400 mt-3 block">
-                    {new Date(insight.created_at).toLocaleString()}
-                  </span>
+                <CardContent className="p-4">
+                  <p className="text-xs text-gray-600 leading-relaxed">{insight.description}</p>
+                  <div className="mt-3 text-[9px] text-gray-400 font-medium">
+                    {new Date(insight.created_at).toLocaleDateString()}
+                  </div>
                 </CardContent>
               </Card>
-            );
-          })}
+            ))
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

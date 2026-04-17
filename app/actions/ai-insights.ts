@@ -13,10 +13,10 @@ export interface AIInsightRow {
   created_at: string;
 }
 
+import supabase from "@/lib/db";
+
 export async function getAIInsights(): Promise<AIInsightRow[]> {
   try {
-    // The ai_insights table is optional; return empty if not present
-    const supabase = (await import("@/lib/db")).default;
     const { data, error } = await supabase
       .from("ai_insights")
       .select("*")
