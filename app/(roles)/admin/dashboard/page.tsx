@@ -117,44 +117,43 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* ═══ ENTERPRISE COMMAND CENTER HEADER ═══ 
-          Displays core financial metrics and system status with premium styling.
+          Displays core financial metrics and system status with premium minimal styling.
       */}
-      <div className="relative overflow-hidden rounded-3xl bg-[#005914] p-6 text-white shadow-xl shadow-green-900/10">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl opacity-50" />
+      <div className="relative overflow-hidden rounded-3xl bg-white p-6 shadow-sm border border-gray-200">
         <div className="relative z-10 flex items-start justify-between">
           <div>
-            <p className="text-green-100 text-xs font-black uppercase tracking-[0.2em] mb-1">Command Center</p>
-            <h2 className="text-2xl font-black tracking-tight">Enterprise Overview</h2>
+            <p className="text-gray-500 text-xs font-black uppercase tracking-[0.2em] mb-1">Command Center</p>
+            <h2 className="text-2xl font-black tracking-tight text-gray-900">Enterprise Overview</h2>
             <div className="flex items-center gap-4 mt-2">
-              <p className="text-green-100/70 text-xs font-bold uppercase tracking-widest flex items-center gap-1.5">
+              <p className="text-gray-500 text-xs font-bold uppercase tracking-widest flex items-center gap-1.5">
                 <Activity className="w-3.5 h-3.5" />
                 Live Hub Status: <span className={`font-black ${
-                  kpis?.hubStatus === 'operational' ? 'text-green-400' :
-                  kpis?.hubStatus === 'maintenance' ? 'text-yellow-400' : 'text-red-400'
+                  kpis?.hubStatus === 'operational' ? 'text-green-600' :
+                  kpis?.hubStatus === 'maintenance' ? 'text-yellow-600' : 'text-red-600'
                 }`}>
                   {kpis?.hubStatus?.toUpperCase() ?? 'OFFLINE'}
                 </span>
               </p>
-              <div className="w-1 h-1 rounded-full bg-white/20" />
-              <p className="text-green-100/70 text-xs font-bold uppercase tracking-widest flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-blue-300" />
+              <div className="w-1 h-1 rounded-full bg-gray-300" />
+              <p className="text-gray-500 text-xs font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-blue-500" />
                 Goal Efficiency: {kpis?.goalEfficiency?.toFixed(1) ?? '0.0'}%
               </p>
             </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center p-2">
-            <Image src="/logo.png" alt="CPF Logo" width={40} height={40} className="w-full h-full object-contain invert" />
+          <div className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center p-2">
+            <Image src="/logo.png" alt="CPF Logo" width={40} height={40} className="w-full h-full object-contain" />
           </div>
         </div>
 
         {/* FINANCIAL DATA REPRESENTATION */}
         <div className="relative z-10 mt-6 grid grid-cols-2 gap-4">
           {/* Pipeline Value: Total prospective/active transaction value */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-black text-green-100/70 uppercase tracking-widest leading-none">Total Pipeline Value</p>
-              <div className={`flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-white/5 ${
-                (kpis?.pipelineGrowth ?? 0) > 0 ? 'text-green-400 bg-white/10' : 'text-gray-400 bg-white/5'
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Pipeline Value</p>
+              <div className={`flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-gray-200 ${
+                (kpis?.pipelineGrowth ?? 0) > 0 ? 'text-green-600 bg-green-50' : 'text-gray-500 bg-white'
               }`}>
                 <ArrowUpRight className="w-2.5 h-2.5" />
                 {typeof kpis?.pipelineGrowth === "number" ?
@@ -162,7 +161,7 @@ export default function AdminDashboardPage() {
                   : '0%'}
               </div>
             </div>
-            <p className="text-xl font-black tracking-tight text-white">
+            <p className="text-xl font-black tracking-tight text-gray-900">
               ₱{(kpis?.totalPipelineValue ?? 0) >= 1000000 
                 ? ((kpis?.totalPipelineValue ?? 0) / 1000000).toFixed(1) + 'M'
                 : (kpis?.totalPipelineValue ?? 0) >= 1000 
@@ -170,20 +169,20 @@ export default function AdminDashboardPage() {
                 : (kpis?.totalPipelineValue ?? 0).toLocaleString('en-PH')
               }
             </p>
-            <div className="w-full h-1 bg-white/10 rounded-full mt-3 overflow-hidden">
+            <div className="w-full h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
               <div 
-                className="h-full bg-green-400 rounded-full transition-all" 
+                className="h-full bg-green-600 rounded-full transition-all" 
                 style={{ width: `${Math.min(100, Math.max(10, (kpis?.goalEfficiency ?? 0)))}%` }}
               />
             </div>
           </div>
           {/* Total Earnings: Confirmed/Completed sales */}
-          <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-black text-green-100/70 uppercase tracking-widest leading-none">Total Earnings</p>
-              <DollarSign className="w-3 h-3 text-green-400" />
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Total Earnings</p>
+              <DollarSign className="w-3 h-3 text-green-700" />
             </div>
-            <p className="text-xl font-black tracking-tight text-white">
+            <p className="text-xl font-black tracking-tight text-gray-900">
               ₱{(kpis?.totalEarnings ?? 0) >= 1000000 
                 ? ((kpis?.totalEarnings ?? 0) / 1000000).toFixed(1) + 'M'
                 : (kpis?.totalEarnings ?? 0) >= 1000 
@@ -191,9 +190,9 @@ export default function AdminDashboardPage() {
                 : (kpis?.totalEarnings ?? 0).toLocaleString('en-PH')
               }
             </p>
-            <div className="w-full h-1 bg-white/10 rounded-full mt-3 overflow-hidden">
+            <div className="w-full h-1 bg-gray-200 rounded-full mt-3 overflow-hidden">
               <div 
-                className="h-full rounded-full transition-all bg-green-400" 
+                className="h-full rounded-full transition-all bg-green-600" 
                 style={{ width: `${Math.min(100, Math.max(2, ((kpis?.totalEarnings ?? 0) / 10000000) * 100))}%` }}
               />
             </div>

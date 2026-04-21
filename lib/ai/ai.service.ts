@@ -29,7 +29,11 @@ export async function askAI(prompt: string) {
     }
 
     // 🔹 Fallback to Gemini for general questions
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Using flash as it's faster for chat
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-flash-latest",
+      systemInstruction: "You are a friendly, human-like inventory and sales assistant for Century Pacific Food Inc. You must be very conversational and natural in your tone. You can understand and respond in English, Tagalog, and Bisaya, adapting to the user's language. CRITICAL: Do NOT use any markdown formatting in your responses (no bold, no asterisks, no headers, no bullet points). Keep your text plain, simple, and easy to read. Be flexible and answer any kind of question, even if it's casual chat."
+    });
+    
     const result = await model.generateContent(prompt);
     return result.response.text();
   } catch (error: any) {
@@ -40,20 +44,20 @@ export async function askAI(prompt: string) {
 
 // 🔹 Formatting Helpers
 function formatLowStock(data: any[]) {
-  if (!data?.length) return "✅ All products are well-stocked. No low stock items found.";
-  return `📉 **Low Stock Alert:**\n\n${data.map(p => `• **${p.name}**: ${p.total_cases} cases left`).join("\n")}`;
+  if (!data?.length) return "All products are well-stocked. No low stock items found at the moment.";
+  return `Low Stock Alert:\n\n${data.map(p => `- ${p.name}: ${p.total_cases} cases left`).join("\n")}`;
 }
 
 function formatTopSalesman(data: any) {
-  if (!data) return "No sales data available to determine the top salesman.";
-  return `🏆 **Top Salesman:**\n\n**${data.name}** with a total of **₱${data.total.toLocaleString()}** in completed sales.`;
+  if (!data) return "No sales data available to determine the top salesman right now.";
+  return `Our Top Salesman is ${data.name} with a total of ₱${data.total.toLocaleString()} in completed sales!`;
 }
 
 function formatTopCustomer(data: any) {
   if (!data) return "No sales data available to determine the top customer.";
-  return `🏬 **Top Customer:**\n\n**${data.name}** with a total purchase value of **₱${data.total.toLocaleString()}**.`;
+  return `Our Top Customer is ${data.name} with a total purchase value of ₱${data.total.toLocaleString()}.`;
 }
 
 function formatSalesSummary(data: any) {
-  return `📊 **Sales Summary:**\n\n• **Total Revenue:** ₱${data.total.toLocaleString()}\n• **Completed Transactions:** ${data.count}`;
+  return `Here is the Sales Summary:\n\nTotal Revenue: ₱${data.total.toLocaleString()}\nCompleted Transactions: ${data.count}`;
 }

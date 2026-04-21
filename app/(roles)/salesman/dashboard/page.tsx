@@ -94,52 +94,50 @@ export default function SalesmanDashboardPage() {
 
   // configuration for rapid field actions
   const quickActions = [
-    { label: "New Visit", href: "/salesman/customers", icon: Plus, gradient: "from-[#005914] to-[#00802b]", shadow: "shadow-green-900/20" },
+    { label: "New Visit", href: "/salesman/customers", icon: Plus, color: "text-gray-900", bg: "bg-white", border: "border-gray-200" },
   ];
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto relative">
       {/* ═══ PERSONALIZED GREETING & CONTEXT ═══ 
-          Shows the user name, date, and a visual brand avatar.
+          Shows the user name, date, and a visual brand avatar in a minimal white design.
       */}
-      <div className="relative overflow-hidden rounded-3xl bg-[#005914] p-6 text-white shadow-xl shadow-green-900/10">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
+      <div className="relative overflow-hidden rounded-3xl bg-white p-6 shadow-sm border border-gray-200">
         <div className="relative z-10 flex items-start justify-between">
           <div>
-            <p className="text-green-100 text-xs font-bold uppercase tracking-widest mb-1">{greeting()}</p>
-            <h2 className="text-2xl font-extrabold tracking-tight">{user?.full_name ?? "Field Partner"}</h2>
-            <p className="text-green-200 text-sm mt-1 flex items-center gap-1.5 opacity-80">
-              <Calendar className="w-3.5 h-3.5" />
+            <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">{greeting()}</p>
+            <h2 className="text-2xl font-extrabold tracking-tight text-gray-900">{user?.full_name ?? "Field Partner"}</h2>
+            <p className="text-gray-500 text-sm mt-1 flex items-center gap-1.5 font-medium">
+              <Calendar className="w-4 h-4 text-gray-400" />
               {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shadow-lg overflow-hidden">
+          <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center border border-gray-200 overflow-hidden">
             <Image src="/seller-hero.png" alt="Seller" width={48} height={48} className="w-full h-full object-cover" />
           </div>
         </div>
 
-        {/* SALES QUOTA PROGRESS BAR
-            Visual representation of how much sales target has been achieved this month.
+        {/* BOOKING PROGRESS BAR
+            Minimal style progress bar tracking.
         */}
-        <div className="relative z-10 mt-5 flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-          <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-            <Target className="w-5 h-5 text-green-200" />
+        <div className="relative z-10 mt-5 flex items-center gap-4 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+            <ShoppingBag className="w-5 h-5 text-green-700" />
           </div>
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold text-green-100 uppercase tracking-wider">Sales Target — {currentMonthName}</p>
-              <p className="text-xs font-extrabold text-green-300">
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Sales Target — {currentMonthName}</p>
+              <p className="text-xs font-extrabold text-green-700">
                 {kpis?.quota?.percentage ?? 0}%
               </p>
             </div>
-            <div className="w-full h-2 bg-black/20 rounded-full mt-2 overflow-hidden">
+            <div className="w-full h-2 bg-gray-200 rounded-full mt-2 overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-green-400 to-emerald-300 rounded-full transition-all duration-1000" 
+                className="h-full bg-green-600 rounded-full transition-all duration-1000" 
                 style={{ width: `${kpis?.quota?.percentage ?? 0}%` }}
               />
             </div>
-            <p className="mt-2 text-xs font-medium text-green-200 tracking-wide flex justify-between">
+            <p className="mt-2 text-xs font-medium text-gray-500 tracking-wide flex justify-between">
               <span>Achieved: ₱{kpis?.quota?.achieved?.toLocaleString("en-PH", { minimumFractionDigits: 2 }) ?? "0.00"}</span>
               <span>Target: ₱{kpis?.quota?.target?.toLocaleString("en-PH", { minimumFractionDigits: 2 }) ?? "0.00"}</span>
             </p>
@@ -171,9 +169,9 @@ export default function SalesmanDashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {quickActions.map((action) => (
             <Link key={action.label} href={action.href}>
-              <div className={`flex flex-col items-center gap-2 p-4 rounded-2xl bg-gradient-to-br ${action.gradient} text-white shadow-xl ${action.shadow} transition-all duration-200 active:scale-95 hover:scale-105`}>
-                <action.icon className="w-6 h-6" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">{action.label}</span>
+              <div className={`flex flex-col items-center gap-2 p-4 rounded-2xl ${action.bg} border ${action.border} shadow-sm transition-all duration-200 active:scale-95 hover:shadow-md`}>
+                <action.icon className="w-6 h-6 text-green-700" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-gray-700">{action.label}</span>
               </div>
             </Link>
           ))}

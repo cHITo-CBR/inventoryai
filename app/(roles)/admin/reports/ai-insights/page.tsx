@@ -20,7 +20,7 @@ export default function AIInsightsPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "ai",
-      text: "Hello! I'm your Inventory Assistant. You can ask me about stock levels, top salesmen, or recent sales summaries.",
+      text: "Hello! I'm your AI Assistant. You can ask me about sales, who our top salesman is today, or we can just chat normally. How can I help you?",
       id: "initial",
     },
   ]);
@@ -94,7 +94,7 @@ export default function AIInsightsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-[#005914]" />
+            <Sparkles className="w-6 h-6 text-gray-800" />
             AI Insights & Chat
           </h1>
           <p className="text-gray-500 text-sm">Analyze inventory data and predict restock needs with Gemini AI.</p>
@@ -113,14 +113,14 @@ export default function AIInsightsPage() {
               >
                 <div className={`flex max-w-[85%] gap-3 ${m.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
                   <div className={`shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${
-                    m.role === "user" ? "bg-[#005914] text-white" : "bg-gray-100 text-gray-500"
+                    m.role === "user" ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-500"
                   }`}>
                     {m.role === "user" ? <User size={16} /> : <Bot size={16} />}
                   </div>
                   <div className={`px-4 py-3 rounded-2xl text-sm whitespace-pre-wrap ${
                     m.role === "user"
-                      ? "bg-[#005914] text-white rounded-tr-none shadow-md"
-                      : "bg-gray-100 text-gray-800 rounded-tl-none border border-gray-200"
+                      ? "bg-gray-800 text-white rounded-tr-none shadow-sm"
+                      : "bg-gray-50 text-gray-800 rounded-tl-none border border-gray-200"
                   }`}>
                     {m.text}
                   </div>
@@ -143,11 +143,11 @@ export default function AIInsightsPage() {
           </div>
 
           <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-gray-50">
-            {["Show low stock products", "Who is the top salesman?", "Give me a sales summary"].map((q) => (
+            {["How are our sales looking?", "Who is the top salesman?", "Any products running out of stock?", "What's up? Are you doing good?"].map((q) => (
               <button
                 key={q}
                 onClick={() => setInput(q)}
-                className="shrink-0 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-[10px] font-medium text-gray-600 hover:bg-green-50 hover:border-green-200 hover:text-[#005914] transition-all"
+                className="shrink-0 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-[10px] font-medium text-gray-600 hover:bg-gray-100 transition-all"
               >
                 {q}
               </button>
@@ -162,12 +162,12 @@ export default function AIInsightsPage() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
                 placeholder="Ask your assistant..."
-                className="w-full pl-6 pr-14 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-green-100 focus:bg-white transition-all shadow-inner"
+                className="w-full pl-6 pr-14 py-3.5 bg-gray-50 border border-gray-200 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-gray-200 focus:bg-white transition-all"
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="absolute right-2 top-2 bottom-2 w-10 bg-[#005914] text-white rounded-xl flex items-center justify-center hover:opacity-90 disabled:opacity-50 transition-all"
+                className="absolute right-2 top-2 bottom-2 w-10 bg-gray-800 text-white rounded-xl flex items-center justify-center hover:bg-gray-700 disabled:opacity-50 transition-all"
               >
                 <Send size={16} />
               </button>
@@ -189,8 +189,8 @@ export default function AIInsightsPage() {
           ) : (
             insights.map((insight) => (
               <Card key={insight.id} className="shadow-sm border-gray-100 rounded-2xl overflow-hidden hover:border-green-200 transition-colors">
-                <CardHeader className="py-3 px-4 bg-gray-50/50 border-b border-gray-50 flex flex-row items-center gap-2">
-                  <div className="text-[#005914]">{getIcon(insight.insight_type)}</div>
+                <CardHeader className="py-3 px-4 bg-white border-b border-gray-100 flex flex-row items-center gap-2">
+                  <div className="text-gray-800">{getIcon(insight.insight_type)}</div>
                   <CardTitle className="text-xs font-bold text-gray-800 uppercase tracking-tight">
                     {insight.title}
                   </CardTitle>

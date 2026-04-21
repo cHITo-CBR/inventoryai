@@ -25,7 +25,7 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
     const startDate = new Date(currentYear, currentMonth - 1, 1).toISOString();
     const endDate = new Date(currentYear, currentMonth, 1).toISOString();
 
-    const [visits, pendingCS, submittedCS, buyerReqs, bookings, quotaRes, achievedRes] = await Promise.all([
+    const [visits, pendingCS, submittedCS, buyerReqs, myMonthlyBookings, quotaRes, myMonthlySales, companyMonthlySales] = await Promise.all([
       supabase.from("store_visits").select("*", { count: "exact", head: true })
         .eq("salesman_id", userId).gte("visit_date", `${today}T00:00:00`),
       supabase.from("callsheets").select("*", { count: "exact", head: true })
@@ -34,36 +34,59 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
         .eq("salesman_id", userId).eq("status", "submitted"),
       supabase.from("buyer_requests").select("*", { count: "exact", head: true })
         .eq("salesman_id", userId).eq("status", "pending"),
+      // My successful bookings this month
       supabase.from("sales_transactions").select("*", { count: "exact", head: true })
-        .eq("salesman_id", userId).eq("status", "completed"),
-      supabase.from("quota_report_view").select("target_amount, achieved_amount")
+        .eq("salesman_id", userId).eq("status", "completed")
+        .gte("created_at", startDate).lt("created_at", endDate),
+      // My quota settings
+      supabase.from("quota_report_view").select("target_amount, achieved_amount, target_orders, achieved_orders, month, year")
         .eq("salesman_id", userId).eq("month", currentMonth).eq("year", currentYear).maybeSingle(),
+      // My sales values this month
       supabase.from("sales_transactions").select("total_amount")
         .eq("salesman_id", userId).eq("status", "completed")
         .gte("created_at", startDate).lt("created_at", endDate),
+      // Company-wide sales this month for dynamic comparison
+      supabase.from("sales_transactions").select("total_amount")
+        .eq("status", "completed")
+        .gte("created_at", startDate).lt("created_at", endDate),
     ]);
 
-    let quotaData = null;
-    
-    // If quotaRes has data, use its target
-    const targetAmount = quotaRes.data ? Number(quotaRes.data.target_amount) : 0;
-    
-    // Calculate achieved from realtime sales as requested: "revenue of your completed visit sell"
-    const calculatedAchieved = (achievedRes.data || []).reduce((sum, tx) => sum + (Number(tx.total_amount) || 0), 0);
-    
-    // Check if view has achieved amount already
-    const viewAchieved = quotaRes.data ? Number(quotaRes.data.achieved_amount) : 0;
-    
-    // Determine the achieved amount by taking whichever is higher or relying on calculated
-    const finalAchieved = calculatedAchieved > 0 ? calculatedAchieved : viewAchieved;
+    // Financial Achievements
+    const myTotalAmount = (myMonthlySales.data || []).reduce((sum, tx) => sum + (Number(tx.total_amount) || 0), 0);
+    const companyTotalAmount = (companyMonthlySales.data || []).reduce((sum, tx) => sum + (Number(tx.total_amount) || 0), 0);
 
-    // We always supply quotaData to the UI so it doesn't break if target is 0
-    quotaData = {
+    // Target Logic: Search for the most relevant quota
+    // 1. Try to find the quota for the EXACT current month/year
+    // 2. If not found, look for any 'ongoing' quota for this salesman
+    let quotaDataRes = quotaRes.data;
+    
+    if (!quotaDataRes) {
+      const { data: latestQuota } = await supabase
+        .from("quota_report_view")
+        .select("target_amount, achieved_amount, month, year")
+        .eq("salesman_id", userId)
+        .order("year", { ascending: false })
+        .order("month", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      quotaDataRes = latestQuota;
+    }
+
+    const hasAssignedQuota = quotaDataRes && Number(quotaDataRes.target_amount) > 0;
+    const targetAmount = hasAssignedQuota ? Number(quotaDataRes.target_amount) : companyTotalAmount;
+    
+    // Percentage Logic
+    const calculatedPercentage = targetAmount > 0 
+      ? Math.min(100, Math.round((myTotalAmount / targetAmount) * 100)) 
+      : (myTotalAmount > 0 ? 100 : 0);
+
+    const quotaData = {
       target: targetAmount,
-      achieved: finalAchieved,
-      percentage: targetAmount > 0 ? Math.min(100, Math.round((finalAchieved / targetAmount) * 100)) : 0,
-      month: currentMonth,
-      year: currentYear,
+      achieved: myTotalAmount,
+      percentage: calculatedPercentage,
+      month: quotaDataRes?.month ?? currentMonth,
+      year: quotaDataRes?.year ?? currentYear,
     };
 
     return {
@@ -71,7 +94,7 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
       pendingCallsheets: pendingCS.count ?? 0,
       submittedCallsheets: submittedCS.count ?? 0,
       pendingBuyerRequests: buyerReqs.count ?? 0,
-      confirmedBookings: bookings.count ?? 0,
+      confirmedBookings: myMonthlyBookings.count ?? 0,
       quota: quotaData,
     };
   } catch (err) {
