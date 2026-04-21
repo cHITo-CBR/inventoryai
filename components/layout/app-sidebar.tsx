@@ -43,7 +43,7 @@ import { getSidebarCounts, SidebarCounts } from "@/app/actions/sidebar";
 import { cn } from "@/lib/utils";
 
 interface AppSidebarProps {
-  basePath?: string; 
+  basePath?: string;
 }
 
 const navItems = [
@@ -110,13 +110,13 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
         setUser(session.user);
       }
     });
-    
+
     getSidebarCounts().then(setCounts);
-    
+
     const interval = setInterval(() => {
       getSidebarCounts().then(setCounts);
     }, 30000);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -127,8 +127,8 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
     { title: "Product Catalog", items: catalogItems },
     { title: "Operations", items: operationsItems },
     { title: "Field Sales", items: fieldSalesItems },
-    { 
-      title: "Analytics & System", 
+    {
+      title: "Analytics & System",
       items: [...analyticsItems, ...systemItems],
       requiresPermission: true
     },
@@ -164,7 +164,7 @@ export function AppSidebar({ basePath = "/admin" }: AppSidebarProps) {
               const isActive = pathname === url || pathname.startsWith(url + "/");
               const countKey = (item as any).countKey as keyof SidebarCounts | undefined;
               const count = countKey && counts ? counts[countKey] : null;
-              
+
               return (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton

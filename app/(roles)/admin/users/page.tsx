@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, Search, Loader2, Inbox } from "lucide-react";
 import { getUsers, getRoles, createUser, type UserRow } from "@/app/actions/users";
 
@@ -139,80 +140,139 @@ export default function UsersManagementPage() {
         </Dialog>
       </div>
 
-      <Card className="shadow-sm border-0 rounded-xl">
-        <CardHeader className="py-4 border-b border-gray-100 flex flex-row items-center justify-between">
-          {/* SEARCH BAR */}
-          <div className="flex gap-3 flex-1 max-w-md">
-            <div className="relative w-full">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search users by name or email..."
-                className="pl-9 h-9 border-gray-200 bg-gray-50"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-          {/* ROLE FILTER DROPDOWN */}
-          <div className="flex items-center gap-3">
-            <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[140px] h-9">
-                <SelectValue placeholder="Filter Role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                {roles.map((r) => (
-                  <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-6 h-6 animate-spin text-[#005914]" />
-            </div>
-          ) : users.length === 0 ? (
-            <EmptyState message="No users found" />
-          ) : (
-            /* USER DIRECTORY TABLE */
-            <Table>
-              <TableHeader className="bg-gray-50/50">
-                <TableRow>
-                  <TableHead>Full Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id} className="hover:bg-gray-50/50">
-                    <TableCell className="font-medium text-gray-900">{user.full_name}</TableCell>
-                    <TableCell className="text-gray-500">{user.email}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-700/10 capitalize">
-                        {user.role_name ?? "N/A"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {/* Visual status indicators (Badge-style) */}
-                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset ${
-                        user.status === "approved" ? "bg-green-50 text-green-700 ring-green-600/20" :
-                        user.status === "pending" ? "bg-yellow-50 text-yellow-700 ring-yellow-600/20" :
-                        "bg-red-50 text-red-700 ring-red-600/20"
-                      } capitalize`}>
-                        {user.status}
-                      </span>
+      <Tabs defaultValue="users" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="users">System Users</TabsTrigger>
+          <TabsTrigger value="store-registrations">Store Registrations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="mt-0">
+          <Card className="shadow-sm border-0 rounded-xl">
+            <CardHeader className="py-4 border-b border-gray-100 flex flex-row items-center justify-between">
+              {/* SEARCH BAR */}
+              <div className="flex gap-3 flex-1 max-w-md">
+                <div className="relative w-full">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search users by name or email..."
+                    className="pl-9 h-9 border-gray-200 bg-gray-50"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+              {/* ROLE FILTER DROPDOWN */}
+              <div className="flex items-center gap-3">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue placeholder="Filter Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    {roles.map((r) => (
+                      <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-6 h-6 animate-spin text-gray-800" />
+                </div>
+              ) : users.length === 0 ? (
+                <EmptyState message="No users found" />
+              ) : (
+                /* USER DIRECTORY TABLE */
+                <Table>
+                  <TableHeader className="bg-gray-50/50">
+                    <TableRow>
+                      <TableHead>Full Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.map((user) => (
+                      <TableRow key={user.id} className="hover:bg-gray-50/50">
+                        <TableCell className="font-medium text-gray-900">{user.full_name}</TableCell>
+                        <TableCell className="text-gray-500">{user.email}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-700/10 capitalize">
+                            {user.role_name ?? "N/A"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {/* Visual status indicators (Badge-style) */}
+                          <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset ${
+                            user.status === "approved" ? "bg-green-50 text-green-700 ring-green-600/20" :
+                            user.status === "pending" ? "bg-yellow-50 text-yellow-700 ring-yellow-600/20" :
+                            "bg-red-50 text-red-700 ring-red-600/20"
+                          } capitalize`}>
+                            {user.status}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="store-registrations" className="mt-0">
+          <Card className="shadow-sm border-0 rounded-xl">
+            <CardHeader className="py-4 border-b border-gray-100 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-lg text-gray-900">Pending Store Registrations</CardTitle>
+                <p className="text-sm text-gray-500 mt-1">Review and approve applications for buyer/store accounts.</p>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader className="bg-gray-50/50">
+                  <TableRow>
+                    <TableHead>Store Name</TableHead>
+                    <TableHead>Contact Person</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Date Applied</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow className="hover:bg-gray-50/50">
+                    <TableCell className="font-medium text-gray-900">Sari-Sari Central</TableCell>
+                    <TableCell className="text-gray-500">Maria Clara</TableCell>
+                    <TableCell className="text-gray-500">maria@sarisari.com</TableCell>
+                    <TableCell className="text-gray-500">Oct 24, 2023</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => alert('This action is currently static. It will cancel the registration.')}>Reject</Button>
+                        <Button size="sm" className="bg-gray-800 hover:bg-gray-900 text-white" onClick={() => alert('This action is currently static. It will approve the registration.')}>Approve</Button>
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  <TableRow className="hover:bg-gray-50/50">
+                    <TableCell className="font-medium text-gray-900">Pasig Minimart</TableCell>
+                    <TableCell className="text-gray-500">Jose Rizal</TableCell>
+                    <TableCell className="text-gray-500">jose@minimart.com</TableCell>
+                    <TableCell className="text-gray-500">Oct 25, 2023</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50" onClick={() => alert('This action is currently static. It will cancel the registration.')}>Reject</Button>
+                        <Button size="sm" className="bg-gray-800 hover:bg-gray-900 text-white" onClick={() => alert('This action is currently static. It will approve the registration.')}>Approve</Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

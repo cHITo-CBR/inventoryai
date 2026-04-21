@@ -59,7 +59,7 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
     // 1. Try to find the quota for the EXACT current month/year
     // 2. If not found, look for any 'ongoing' quota for this salesman
     let quotaDataRes = quotaRes.data;
-    
+
     if (!quotaDataRes) {
       const { data: latestQuota } = await supabase
         .from("quota_report_view")
@@ -69,16 +69,16 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
         .order("month", { ascending: false })
         .limit(1)
         .maybeSingle();
-      
+
       quotaDataRes = latestQuota;
     }
 
     const hasAssignedQuota = quotaDataRes && Number(quotaDataRes.target_amount) > 0;
     const targetAmount = hasAssignedQuota ? Number(quotaDataRes.target_amount) : companyTotalAmount;
-    
+
     // Percentage Logic
-    const calculatedPercentage = targetAmount > 0 
-      ? Math.min(100, Math.round((myTotalAmount / targetAmount) * 100)) 
+    const calculatedPercentage = targetAmount > 0
+      ? Math.min(100, Math.round((myTotalAmount / targetAmount) * 100))
       : (myTotalAmount > 0 ? 100 : 0);
 
     const quotaData = {
