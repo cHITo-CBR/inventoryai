@@ -75,8 +75,9 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
       quotaDataRes = latestQuota as typeof quotaDataRes;
     }
 
-    const hasAssignedQuota = quotaDataRes && Number(quotaDataRes.target_amount) > 0;
-    const targetAmount = hasAssignedQuota ? Number(quotaDataRes.target_amount) : companyTotalAmount;
+    // Safe target amount extraction — inline check lets TypeScript narrow correctly
+    const quotaTargetAmount = quotaDataRes ? Number(quotaDataRes.target_amount) : 0;
+    const targetAmount = quotaTargetAmount > 0 ? quotaTargetAmount : companyTotalAmount;
     
     // Percentage Logic
     const calculatedPercentage = targetAmount > 0 
@@ -98,7 +99,7 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
       target: targetAmount,
       achieved: myTotalAmount,
       percentage: calculatedPercentage,
-      orderTarget: Number(quotaDataRes?.target_orders || 0),
+      orderTarget: Number(quotaDataRes?.target_orders ?? 0),
       orderAchieved: myMonthlyBookings.count ?? 0,
       orderPercentage: quotaDataRes?.target_orders ? Math.min(100, Math.round(((myMonthlyBookings.count ?? 0) / Number(quotaDataRes.target_orders)) * 100)) : 0,
       month: quotaDataRes?.month ?? currentMonth,
