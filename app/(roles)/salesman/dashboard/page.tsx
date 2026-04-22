@@ -118,29 +118,76 @@ export default function SalesmanDashboardPage() {
         </div>
 
         {/* BOOKING PROGRESS BAR
-            Minimal style progress bar tracking.
+            Shows dynamic status (Achieved, On Track, Below Target) and progress statistics.
         */}
-        <div className="relative z-10 mt-5 flex items-center gap-4 bg-gray-50 rounded-2xl p-4 border border-gray-100">
-          <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-            <ShoppingBag className="w-5 h-5 text-green-700" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Sales Target — {currentMonthName}</p>
-              <p className="text-xs font-extrabold text-green-700">
-                {kpis?.quota?.percentage ?? 0}%
+        <div className="relative z-10 mt-5 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg ${
+                kpis?.quota?.status === "Achieved" ? "bg-emerald-100 text-emerald-700" :
+                kpis?.quota?.status === "On Track" ? "bg-blue-100 text-blue-700" :
+                kpis?.quota?.status === "Below Target" ? "bg-amber-100 text-amber-700" :
+                "bg-gray-100 text-gray-500"
+              } flex items-center justify-center`}>
+                <Target className="w-4 h-4" />
+              </div>
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                Monthly Performance — {currentMonthName}
               </p>
             </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full mt-2 overflow-hidden">
-              <div 
-                className="h-full bg-green-600 rounded-full transition-all duration-1000" 
-                style={{ width: `${kpis?.quota?.percentage ?? 0}%` }}
-              />
+            {kpis?.quota?.status && (
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                kpis?.quota?.status === "Achieved" ? "bg-emerald-500 text-white" :
+                kpis?.quota?.status === "On Track" ? "bg-blue-500 text-white" :
+                kpis?.quota?.status === "Below Target" ? "bg-amber-500 text-white" :
+                "bg-gray-200 text-gray-500"
+              }`}>
+                {kpis.quota.status}
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {/* Amount Quota */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Financial Target</p>
+                <div className="text-right">
+                   <p className="text-sm font-black text-gray-900 leading-none">
+                    ₱{kpis?.quota?.achieved?.toLocaleString("en-PH", { minimumFractionDigits: 0 })}
+                    <span className="text-[10px] font-bold text-gray-400 ml-1">/ ₱{kpis?.quota?.target?.toLocaleString("en-PH", { minimumFractionDigits: 0 })}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-1000 ${
+                    kpis?.quota?.status === "Achieved" ? "bg-emerald-500" :
+                    kpis?.quota?.status === "On Track" ? "bg-blue-500" :
+                    "bg-amber-500"
+                  }`} 
+                  style={{ width: `${kpis?.quota?.percentage ?? 0}%` }}
+                />
+              </div>
             </div>
-            <p className="mt-2 text-xs font-medium text-gray-500 tracking-wide flex justify-between">
-              <span>Achieved: ₱{kpis?.quota?.achieved?.toLocaleString("en-PH", { minimumFractionDigits: 2 }) ?? "0.00"}</span>
-              <span>Target: ₱{kpis?.quota?.target?.toLocaleString("en-PH", { minimumFractionDigits: 2 }) ?? "0.00"}</span>
-            </p>
+
+            {/* Orders Quota (Minor indicator) */}
+            {kpis?.quota?.orderTarget ? (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Order Volume</p>
+                  <p className="text-xs font-black text-gray-700">
+                    {kpis.quota.orderAchieved} / {kpis.quota.orderTarget} orders
+                  </p>
+                </div>
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gray-600 rounded-full transition-all duration-1000" 
+                    style={{ width: `${kpis.quota.orderPercentage}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

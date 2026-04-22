@@ -10,7 +10,6 @@ export interface SidebarCounts {
   visits: number;
   buyerRequests: number;
   bookings: number;
-  notifications: number;
   orders: number;
   callsheets: number;
   [key: string]: number;
@@ -18,14 +17,13 @@ export interface SidebarCounts {
 
 export async function getSidebarCounts(): Promise<SidebarCounts> {
   try {
-    const [customers, products, sales, quotas, visits, buyerRequests, notifications] = await Promise.all([
+    const [customers, products, sales, quotas, visits, buyerRequests] = await Promise.all([
       supabase.from("customers").select("*", { count: "exact", head: true }).eq("is_active", true).then(r => r.count || 0),
       supabase.from("products").select("*", { count: "exact", head: true }).eq("is_active", true).then(r => r.count || 0),
       supabase.from("sales_transactions").select("*", { count: "exact", head: true }).then(r => r.count || 0),
       supabase.from("salesman_quotas").select("*", { count: "exact", head: true }).eq("status", "ongoing").then(r => r.count || 0),
       supabase.from("store_visits").select("*", { count: "exact", head: true }).then(r => r.count || 0, () => 0),
       supabase.from("buyer_requests").select("*", { count: "exact", head: true }).eq("status", "pending").then(r => r.count || 0, () => 0),
-      supabase.from("notifications").select("*", { count: "exact", head: true }).eq("is_read", false).then(r => r.count || 0, () => 0),
     ]);
 
     return {
@@ -37,12 +35,11 @@ export async function getSidebarCounts(): Promise<SidebarCounts> {
       visits: Number(visits),
       buyerRequests: Number(buyerRequests),
       bookings: 0,
-      notifications: Number(notifications),
       orders: 0,
       callsheets: 0,
     };
   } catch (error) {
     console.error("Error fetching sidebar counts:", error);
-    return { customers: 0, products: 0, inventory: 0, sales: 0, quotas: 0, visits: 0, buyerRequests: 0, bookings: 0, notifications: 0, orders: 0, callsheets: 0 };
+    return { customers: 0, products: 0, inventory: 0, sales: 0, quotas: 0, visits: 0, buyerRequests: 0, bookings: 0, orders: 0, callsheets: 0 };
   }
 }

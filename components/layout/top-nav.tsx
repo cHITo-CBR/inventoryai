@@ -2,18 +2,18 @@
 
 import * as React from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search, Sun, Moon, LogOut } from "lucide-react";
+import { Search, Sun, Moon, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { getUnreadCount } from "@/app/actions/notifications";
+
 import { globalSearch, type SearchResult } from "@/app/actions/search";
-import Link from "next/link";
+
 import { useTheme } from "next-themes";
 import { useRouter } from "next/navigation";
 import { logoutUser } from "@/app/actions/auth";
 
 export function TopNav() {
-  const [unreadCount, setUnreadCount] = React.useState(0);
+
   const { theme, setTheme } = useTheme();
   const router = useRouter();
 
@@ -22,17 +22,7 @@ export function TopNav() {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [isSearching, setIsSearching] = React.useState(false);
 
-  React.useEffect(() => {
-    // Initial fetch
-    getUnreadCount().then(setUnreadCount);
 
-    // Dynamic Polling for Vercel-Friendly Real-time updates
-    const intervalId = setInterval(() => {
-      getUnreadCount().then(setUnreadCount);
-    }, 10000); // 10 seconds
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   React.useEffect(() => {
     if (query.trim().length < 2) {
@@ -96,16 +86,6 @@ export function TopNav() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Link href="/notifications">
-          <Button variant="ghost" size="icon" className="relative text-gray-500 hover:text-[#005914] hover:bg-gray-50 rounded-full">
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-bold text-white bg-red-500 rounded-full border-2 border-white">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </Button>
-        </Link>
         <Button
           variant="ghost"
           size="icon"

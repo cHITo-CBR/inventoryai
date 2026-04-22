@@ -13,16 +13,17 @@ interface QuotaTableProps {
   quotas: QuotaRow[];
 }
 
-const statusColors = {
-  pending: "bg-yellow-100 text-yellow-800",
-  ongoing: "bg-blue-100 text-blue-800", 
-  completed: "bg-green-100 text-green-800"
-};
-
 const monthNames = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 ];
+
+const dynamicStatusColors = {
+  "Achieved": "bg-emerald-100 text-emerald-800 border-emerald-200",
+  "On Track": "bg-blue-100 text-blue-800 border-blue-200",
+  "Below Target": "bg-amber-100 text-amber-800 border-amber-200",
+  "Pending": "bg-gray-100 text-gray-800 border-gray-200"
+};
 
 export default function QuotaTable({ quotas }: QuotaTableProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -61,15 +62,15 @@ export default function QuotaTable({ quotas }: QuotaTableProps) {
           </Button>
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-hidden">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-gray-50">
               <TableRow>
                 <TableHead>Salesman</TableHead>
                 <TableHead>Period</TableHead>
                 <TableHead>Target Amount</TableHead>
                 <TableHead>Achieved</TableHead>
-                <TableHead>Progress</TableHead>
+                <TableHead>Live Progress</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -79,65 +80,78 @@ export default function QuotaTable({ quotas }: QuotaTableProps) {
                 const progressPercentage = quota.amount_percentage || 0;
                 
                 return (
-                  <TableRow key={quota.id}>
+                  <TableRow key={quota.id} className="hover:bg-gray-50/50">
                     <TableCell>
                       <div>
-                        <p className="font-medium">{quota.salesman_name || "Unknown"}</p>
-                        <p className="text-sm text-gray-500">{quota.salesman_email}</p>
+                        <p className="font-bold text-gray-900">{quota.salesman_name || "Unknown"}</p>
+                        <p className="text-xs text-gray-500">{quota.salesman_email}</p>
                       </div>
                     </TableCell>
                     
                     <TableCell>
-                      <p className="font-medium">{monthNames[quota.month - 1]} {quota.year}</p>
+                      <p className="font-medium text-gray-700">{monthNames[quota.month - 1]} {quota.year}</p>
                     </TableCell>
                     
                     <TableCell>
                       <div className="space-y-1">
-                        <p className="font-medium">₱{quota.target_amount?.toLocaleString() || "—"}</p>
-                        {quota.target_units && (
-                          <p className="text-xs text-gray-500">{quota.target_units} units</p>
-                        )}
+                        <p className="font-bold">₱{quota.target_amount?.toLocaleString() || "—"}</p>
                         {quota.target_orders && (
-                          <p className="text-xs text-gray-500">{quota.target_orders} orders</p>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{quota.target_orders} orders</p>
                         )}
                       </div>
                     </TableCell>
                     
                     <TableCell>
                       <div className="space-y-1">
-                        <p className="font-medium">₱{quota.achieved_amount.toLocaleString()}</p>
-                        {quota.achieved_units > 0 && (
-                          <p className="text-xs text-gray-500">{quota.achieved_units} units</p>
-                        )}
+                        <p className="font-bold text-gray-900">₱{quota.achieved_amount.toLocaleString()}</p>
                         {quota.achieved_orders > 0 && (
-                          <p className="text-xs text-gray-500">{quota.achieved_orders} orders</p>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{quota.achieved_orders} orders</p>
                         )}
                       </div>
                     </TableCell>
                     
                     <TableCell>
-                      <div className="space-y-2">
-                        <Progress value={progressPercentage} className="w-20" />
-                        <p className="text-xs text-gray-500">{progressPercentage.toFixed(1)}%</p>
+                      <div className="space-y-1.5 w-full min-w-[120px]">
+                        <div className="flex justify-between items-center text-[10px] font-black">
+                          <span className={`${
+                            quota.dynamicStatus === "Achieved" ? "text-emerald-600" :
+                            quota.dynamicStatus === "On Track" ? "text-blue-600" :
+                            quota.dynamicStatus === "Below Target" ? "text-amber-600" :
+                            "text-gray-400"
+                          }`}>{progressPercentage.toFixed(1)}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden border border-gray-200/50">
+                          <div 
+                            className={`h-full rounded-full transition-all duration-1000 ${
+                              quota.dynamicStatus === "Achieved" ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" :
+                              quota.dynamicStatus === "On Track" ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]" :
+                              quota.dynamicStatus === "Below Target" ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.3)]" :
+                              "bg-gray-300"
+                            }`} 
+                            style={{ width: `${Math.min(100, progressPercentage)}%` }}
+                          />
+                        </div>
                       </div>
                     </TableCell>
                     
                     <TableCell>
-                      <Badge variant="outline" className={statusColors[quota.status]}>
-                        {quota.status}
+                      <Badge 
+                        variant="outline" 
+                        className={`font-black tracking-tighter text-[10px] uppercase py-0.5 px-2 ${dynamicStatusColors[quota.dynamicStatus || "Pending"]}`}
+                      >
+                        {quota.dynamicStatus || "Pending"}
                       </Badge>
                     </TableCell>
                     
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleEdit(quota)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="h-8 w-8 text-gray-400 hover:text-gray-900"
+                        onClick={() => handleEdit(quota)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );

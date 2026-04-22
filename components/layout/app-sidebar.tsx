@@ -8,7 +8,6 @@ import {
   Box,
   CheckSquare,
   ClipboardList,
-  FileText,
   LayoutDashboard,
   MapPin,
   Package,
@@ -21,7 +20,6 @@ import {
   Tags,
   Target,
   Users,
-  Bell,
   Archive,
   Scale,
   ChevronDown
@@ -79,8 +77,6 @@ const analyticsItems = [
 ];
 
 const systemItems = [
-  { title: "Notifications", path: "/notifications", icon: Bell, countKey: "notifications" as const },
-  { title: "Audit Logs", path: "/audit", icon: FileText, adminOnly: true },
   { title: "Archives", path: "/archives", icon: Archive, adminOnly: true },
   { title: "Settings", path: "/settings", icon: Settings },
   { title: "Profile", path: "/profile", icon: Users, supervisorOnly: true },
@@ -90,7 +86,7 @@ const getSectionFromPath = (path: string): string => {
   if (path.includes("/catalog")) return "Product Catalog";
   if (path.includes("/inventory") || path.includes("/sales") || path.includes("/quotas") || path.includes("/visits")) return "Operations";
   if (path.includes("/bookings")) return "Field Sales";
-  if (path.includes("/reports") || path.includes("/notifications") || path.includes("/audit") || path.includes("/archives") || path.includes("/settings") || path.includes("/profile")) return "Analytics & System";
+  if (path.includes("/reports") || path.includes("/archives") || path.includes("/settings") || path.includes("/profile")) return "Analytics & System";
   return "Main";
 };
 
