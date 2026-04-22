@@ -72,7 +72,7 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
         .limit(1)
         .maybeSingle();
       
-      quotaDataRes = latestQuota;
+      quotaDataRes = latestQuota as typeof quotaDataRes;
     }
 
     const hasAssignedQuota = quotaDataRes && Number(quotaDataRes.target_amount) > 0;
