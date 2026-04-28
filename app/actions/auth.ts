@@ -17,8 +17,9 @@ import { notifyRole } from "@/app/actions/notifications";
  * Handles new user registration.
  * 1. Validates input
  * 2. Checks for existing users
- * 3. Hashes passwords
+ * 3. Hashes passwords using bcrypt for security
  * 4. Inserts into 'users' table (and 'customers' table for buyers)
+ * 5. Notifies admins of new registration requests
  */
 export async function registerUser(prevState: any, formData: FormData) {
   const fullName = formData.get("fullName") as string;
@@ -27,19 +28,19 @@ export async function registerUser(prevState: any, formData: FormData) {
   const password = formData.get("password") as string;
   const roleName = formData.get("role") as string;
 
-  // Basic validation
+  // Basic validation to ensure required data is present
   if (!fullName || !email || !password || !roleName) {
     return { error: "Missing required fields." };
   }
 
   try {
-    // Map role names to database IDs
+    // Map role names to database IDs used in the roles table
     const roleMap: Record<string, number> = {
       admin: 1, supervisor: 2, salesman: 3, buyer: 4
     };
     const roleId = roleMap[roleName] || 4;
 
-    // Check if email already exists in the system
+    // Check if email already exists in the system to prevent duplicates
     const { data: existing } = await supabase
       .from("users")
       .select("id")
@@ -51,14 +52,14 @@ export async function registerUser(prevState: any, formData: FormData) {
     }
 
     const userId = generateUUID();
-    // Buyers and specific admin emails are auto-approved
+    // Logic for auto-approval: Buyers and the primary admin account are approved instantly
     const isBuyer = roleName === "buyer";
     const isAutoApprove = isBuyer || email === "admin@flowstock.com";
     
-    // Hash the password for secure storage
+    // Hash the password for secure storage. Never store plain-text passwords.
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // Create the user record
+    // Create the user record in the 'users' table
     const { error: insertError } = await supabase.from("users").insert({
       id: userId,
       full_name: fullName,
@@ -72,7 +73,7 @@ export async function registerUser(prevState: any, formData: FormData) {
 
     if (insertError) throw insertError;
 
-    // If user is a buyer, also create a record in the customers table
+    // If user is a buyer, also create a corresponding record in the customers table
     if (isBuyer) {
       await supabase.from("customers").insert({
         id: generateUUID(),
@@ -84,7 +85,7 @@ export async function registerUser(prevState: any, formData: FormData) {
       });
     }
 
-    // Notify the admin of a new registration
+    // Trigger a system notification to the admin regarding the new user
     await notifyRole(
       "admin", 
       "New User Registration", 
@@ -101,9 +102,10 @@ export async function registerUser(prevState: any, formData: FormData) {
 
 /**
  * Handles user login.
- * 1. Authenticates credentials
- * 2. Checks account status (pending/rejected/active)
- * 3. Creates a secure identity session
+ * 1. Fetches user by email
+ * 2. Authenticates credentials via bcrypt comparison
+ * 3. Checks account status (pending/rejected/active)
+ * 4. Creates a secure identity session for the user
  */
 export async function loginUser(prevState: any, formData: FormData) {
   const email = formData.get("email") as string;
@@ -114,7 +116,7 @@ export async function loginUser(prevState: any, formData: FormData) {
   }
 
   try {
-    // Fetch user and their role from database
+    // Fetch user and their role from database using a join
     const { data: user, error } = await supabase
       .from("users")
       .select("*, roles(name)")
@@ -126,13 +128,13 @@ export async function loginUser(prevState: any, formData: FormData) {
       return { error: "Invalid credentials." };
     }
 
-    // Compare provided password with hashed password in DB
+    // Compare provided password with the hashed password stored in DB
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
     if (!passwordMatch) {
       return { error: "Invalid credentials." };
     }
 
-    // CHECK ACCOUNT STATUS
+    // ENFORCE ACCOUNT STATUS: Pending accounts cannot log in until an admin approves
     if (user.status === "pending") {
       return { error: "Waiting for admin approval. Your account is pending." };
     }
@@ -143,9 +145,10 @@ export async function loginUser(prevState: any, formData: FormData) {
       return { error: "Account is inactive." };
     }
 
-    // Determine role and initialize session
+    // Determine role name for the session
     const roleStr = user.roles?.name ? user.roles.name.toLowerCase() : "buyer";
 
+    // Create a secure, encrypted cookie-based session
     await createSession({
       id: user.id,
       email: user.email,
@@ -171,6 +174,7 @@ export async function logoutUser() {
 
 /**
  * Utility to get the current authenticated user's session data.
+ * Used in layouts and pages to check if a user is logged in.
  */
 export async function getCurrentUser() {
   try {

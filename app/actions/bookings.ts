@@ -11,12 +11,13 @@ import { getSession } from "@/lib/session";
 
 /**
  * Interface representing a single booking record from the database.
+ * Used for typing throughout the salesman dashboard.
  */
 export interface BookingRow {
   id: string;
   salesman_id: string;
   customer_id: string | null;
-  customer_store_name: string | null; // Joined from customers table
+  customer_store_name: string | null; // Joined from the customers table
   total_amount: number;
   status: "pending" | "approved" | "completed" | "cancelled";
   created_at: string;
@@ -25,25 +26,26 @@ export interface BookingRow {
 
 /**
  * Retrieves all bookings for the currently logged-in salesman.
- * 1. Checks current user session
- * 2. Fetches transactions from 'sales_transactions' table
- * 3. Joins with 'customers' table to get the store name
+ * 1. Checks current user session to identify the salesman.
+ * 2. Fetches transactions from 'sales_transactions' table.
+ * 3. Joins with 'customers' table to get the human-readable store name.
  */
 export async function getSalesmanBookings(): Promise<BookingRow[]> {
   try {
     const session = await getSession();
-    if (!session?.user?.id) return []; // Ensure user is authenticated
+    // Security check: Ensure the user is authenticated before fetching data
+    if (!session?.user?.id) return [];
 
-    // Query database with joins and ordering
+    // Query database with joins and descending order (newest first)
     const { data, error } = await supabase
       .from("sales_transactions")
       .select("id, salesman_id, customer_id, total_amount, status, created_at, updated_at, customers(store_name)")
-      .eq("salesman_id", session.user.id) // Only get bookings for THIS salesman
-      .order("created_at", { ascending: false }); // Newest first
+      .eq("salesman_id", session.user.id) // Authorization filter
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    // Map and format the data for the UI
+    // Format the result to include the joined store name and numeric amounts
     return (data || []).map((b: any) => ({
       ...b,
       customer_store_name: b.customers?.store_name || null,
@@ -56,7 +58,8 @@ export async function getSalesmanBookings(): Promise<BookingRow[]> {
 }
 
 /**
- * Fetches a single booking details by its ID.
+ * Fetches a single booking's details by its ID.
+ * Ensures that the booking belongs to the requesting salesman.
  */
 export async function getBookingById(id: string): Promise<BookingRow | null> {
   try {
@@ -67,7 +70,7 @@ export async function getBookingById(id: string): Promise<BookingRow | null> {
       .from("sales_transactions")
       .select("id, salesman_id, customer_id, total_amount, status, created_at, updated_at, customers(store_name)")
       .eq("id", id)
-      .eq("salesman_id", session.user.id)
+      .eq("salesman_id", session.user.id) // Ensure salesman owns this record
       .maybeSingle();
 
     if (error) throw error;
@@ -86,8 +89,8 @@ export async function getBookingById(id: string): Promise<BookingRow | null> {
 }
 
 /**
- * Creates a new booking transaction.
- * Usually called from a new booking form submissions.
+ * Creates a new sales booking transaction.
+ * Usually triggered when a salesman submits the 'New Booking' form.
  */
 export async function createBooking(formData: FormData) {
   try {
@@ -97,19 +100,21 @@ export async function createBooking(formData: FormData) {
     const customer_id = formData.get("customer_id") as string;
     const total_amount = formData.get("total_amount") as string;
 
+    // Validate that required form data is present
     if (!customer_id || !total_amount) {
       return { error: "Customer and total amount are required" };
     }
 
-    const bookingId = crypto.randomUUID(); // Generate unique ID for the transaction
+    // Generate a unique identifier for this transaction
+    const bookingId = crypto.randomUUID();
 
-    // Insert the new transaction record
+    // Insert the new record into the sales transactions table
     const { error } = await supabase.from("sales_transactions").insert({
       id: bookingId,
       salesman_id: session.user.id,
       customer_id,
       total_amount: parseFloat(total_amount),
-      status: "pending", // Default status for new bookings
+      status: "pending", // All new bookings start as pending until fulfilled
     });
 
     if (error) throw error;
@@ -121,9 +126,9 @@ export async function createBooking(formData: FormData) {
 }
 
 /**
- * Updates the status of an existing booking.
- * @param id - The booking ID
- * @param status - The new status (e.g., 'cancelled')
+ * Updates the status of an existing booking (e.g., cancelling it).
+ * @param id - The ID of the transaction to update.
+ * @param status - The new status to apply.
  */
 export async function updateBookingStatus(id: string, status: string) {
   try {
@@ -134,7 +139,7 @@ export async function updateBookingStatus(id: string, status: string) {
       .from("sales_transactions")
       .update({ status, updated_at: new Date().toISOString() })
       .eq("id", id)
-      .eq("salesman_id", session.user.id);
+      .eq("salesman_id", session.user.id); // Ensure authorization
 
     if (error) throw error;
     return { success: true };

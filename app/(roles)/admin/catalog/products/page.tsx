@@ -60,16 +60,16 @@ export default function ProductCatalogPage() {
     e.preventDefault();
     setSaving(true);
     const form = new FormData(e.currentTarget);
-    
+
     // Add the uploaded image URL to the form data
     if (uploadedImageUrl) {
       form.append('imageUrl', uploadedImageUrl);
     }
-    
-    const result = editingProduct 
+
+    const result = editingProduct
       ? await updateProduct(editingProduct.id, form)
       : await createProduct(form);
-      
+
     setSaving(false);
     if (result.success) {
       setDialogOpen(false);
@@ -82,18 +82,18 @@ export default function ProductCatalogPage() {
 
   async function handleImageUpload(file: File) {
     if (!file) return;
-    
+
     setUploadingImage(true);
-    
+
     try {
       // Read file as Base64 for Cloudinary server action
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      
+
       reader.onload = async () => {
         const base64 = reader.result as string;
         const result = await uploadImageFromBase64(base64, "products");
-        
+
         if (result.success && result.url) {
           setUploadedImageUrl(result.url);
         } else {
@@ -182,9 +182,9 @@ export default function ProductCatalogPage() {
               <div className="flex items-center space-x-4">
                 {uploadedImageUrl ? (
                   <div className="relative">
-                    <img 
-                      src={uploadedImageUrl} 
-                      alt="Product" 
+                    <img
+                      src={uploadedImageUrl}
+                      alt="Product"
                       className="w-20 h-20 object-cover rounded-md border"
                     />
                     <button
@@ -242,26 +242,26 @@ export default function ProductCatalogPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="totalCases">Total Cases</Label>
-              <Input 
-                id="totalCases" 
-                name="totalCases" 
-                type="number" 
+              <Input
+                id="totalCases"
+                name="totalCases"
+                type="number"
                 min="0"
-                placeholder="e.g. 100" 
-                defaultValue={editingProduct?.total_cases || 0} 
+                placeholder="e.g. 100"
+                defaultValue={editingProduct?.total_cases || 0}
               />
               <p className="text-xs text-gray-500">Number of cases/boxes in inventory</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="packagingPrice">Packaging Price</Label>
-              <Input 
-                id="packagingPrice" 
-                name="packagingPrice" 
-                type="number" 
+              <Input
+                id="packagingPrice"
+                name="packagingPrice"
+                type="number"
                 step="0.01"
                 min="0"
-                placeholder="e.g. 125.50" 
-                defaultValue={editingProduct?.packaging_price?.toString() || ""} 
+                placeholder="e.g. 125.50"
+                defaultValue={editingProduct?.packaging_price?.toString() || ""}
               />
               <p className="text-xs text-gray-500">Price per packaging unit in PHP</p>
             </div>
@@ -339,8 +339,8 @@ export default function ProductCatalogPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center overflow-hidden">
                           {p.image_url ? (
-                            <img 
-                              src={p.image_url} 
+                            <img
+                              src={p.image_url}
                               alt={p.name}
                               className="w-full h-full object-cover"
                             />
@@ -354,7 +354,7 @@ export default function ProductCatalogPage() {
                     <TableCell className="text-gray-500">{p.category_name ?? "—"}</TableCell>
                     <TableCell className="text-gray-500 font-medium">{p.brand_name ?? "—"}</TableCell>
                     <TableCell className="text-gray-500">
-                      {p.packaging_price && typeof p.packaging_price === 'number' && p.packaging_price > 0 ? 
+                      {p.packaging_price && typeof p.packaging_price === 'number' && p.packaging_price > 0 ?
                         `₱${p.packaging_price.toFixed(2)}` : "—"}
                     </TableCell>
                     <TableCell className="text-gray-500">
@@ -364,11 +364,10 @@ export default function ProductCatalogPage() {
                       {p.net_weight || "—"}
                     </TableCell>
                     <TableCell className="text-gray-700 font-semibold">
-                      <span className={`px-2 py-1 rounded-md text-xs ${
-                        p.total_cases === 0 ? 'bg-red-50 text-red-700' : 
-                        p.total_cases < 10 ? 'bg-yellow-50 text-yellow-700' : 
-                        'bg-green-50 text-green-700'
-                      }`}>
+                      <span className={`px-2 py-1 rounded-md text-xs ${p.total_cases === 0 ? 'bg-red-50 text-red-700' :
+                          p.total_cases < 10 ? 'bg-yellow-50 text-yellow-700' :
+                            'bg-green-50 text-green-700'
+                        }`}>
                         {p.total_cases} cases
                       </span>
                     </TableCell>

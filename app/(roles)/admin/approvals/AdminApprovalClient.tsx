@@ -32,10 +32,10 @@ export default function AdminApprovalClient({ user }: { user: any }) {
     const res = await rejectUser(user.id, reason);
     setLoading(false);
     if (res.error) {
-       alert(res.error);
+      alert(res.error);
     } else {
-       setRejectMode(false);
-       router.refresh();
+      setRejectMode(false);
+      router.refresh();
     }
   };
 
@@ -59,23 +59,23 @@ export default function AdminApprovalClient({ user }: { user: any }) {
       <TableCell className="text-right">
         {rejectMode ? (
           <div className="flex items-center justify-end space-x-2">
-            <Input 
-              type="text" 
-              placeholder="Reason..." 
-              value={reason} 
+            <Input
+              type="text"
+              placeholder="Reason..."
+              value={reason}
               onChange={(e) => setReason(e.target.value)}
               className="h-8 w-40 text-xs"
             />
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant="destructive"
               onClick={handleReject}
               disabled={loading}
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant="ghost"
               onClick={() => setRejectMode(false)}
               disabled={loading}
@@ -85,8 +85,8 @@ export default function AdminApprovalClient({ user }: { user: any }) {
           </div>
         ) : (
           <div className="flex justify-end space-x-2">
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant="outline"
               className="text-green-600 hover:text-green-700 hover:bg-green-50"
               onClick={handleApprove}
@@ -94,8 +94,8 @@ export default function AdminApprovalClient({ user }: { user: any }) {
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Check className="mr-1 h-3 w-3" /> Approve</>}
             </Button>
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               variant="outline"
               className="text-red-600 hover:text-red-700 hover:bg-red-50"
               onClick={() => setRejectMode(true)}

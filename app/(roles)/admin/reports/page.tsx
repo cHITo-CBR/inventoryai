@@ -10,7 +10,7 @@ export default async function ReportsAnalyticsPage() {
     // Fetch data on server side to avoid client-side MySQL2 imports
     const [trends, categories, quotaSummary] = await Promise.all([
       getSalesTrends(),
-      getTopCategories(), 
+      getTopCategories(),
       getCurrentMonthQuotaSummary()
     ]);
 
@@ -87,17 +87,17 @@ export default async function ReportsAnalyticsPage() {
                       <p className="text-xs text-gray-500">Completed</p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Target: ₱{quotaSummary.total_target.toLocaleString()}</span>
                       <span>Achieved: ₱{quotaSummary.total_achieved.toLocaleString()}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-purple-600 h-2 rounded-full" 
-                        style={{ 
-                          width: `${Math.min((quotaSummary.total_achieved / quotaSummary.total_target) * 100, 100)}%` 
+                      <div
+                        className="bg-purple-600 h-2 rounded-full"
+                        style={{
+                          width: `${Math.min((quotaSummary.total_achieved / quotaSummary.total_target) * 100, 100)}%`
                         }}
                       ></div>
                     </div>

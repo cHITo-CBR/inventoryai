@@ -50,7 +50,7 @@ export default async function AdminApprovalsPage() {
           <p className="text-muted-foreground mt-1">Manage pending user registrations</p>
         </div>
       </div>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>Pending Approvals</CardTitle>

@@ -1,6 +1,9 @@
 "use server";
 import supabase from "@/lib/db";
 
+/**
+ * Interface representing a summarized physical store visit.
+ */
 export interface StoreVisitRow {
   id: string;
   visit_date: string;
@@ -11,6 +14,10 @@ export interface StoreVisitRow {
   store_visit_skus: { id: string }[];
 }
 
+/**
+ * Interface representing the comprehensive details of a specific visit.
+ * Includes GPS coordinates and specific product availability notes.
+ */
 export interface VisitReportDetail {
   id: string;
   visit_date: string;
@@ -26,6 +33,11 @@ export interface VisitReportDetail {
   }[];
 }
 
+/**
+ * Retrieves all physical store visits across the system.
+ * 1. Fetches visit headers with customer and salesman joins.
+ * 2. Fetches related SKU availability counts for each visit to show as badges.
+ */
 export async function getStoreVisits(): Promise<StoreVisitRow[]> {
   try {
     const { data: visits, error } = await supabase
@@ -38,6 +50,7 @@ export async function getStoreVisits(): Promise<StoreVisitRow[]> {
     const visitIds = (visits || []).map((v: any) => v.id);
     let skusMap = new Map<string, { id: string }[]>();
 
+    // Batch fetch SKU data to avoid N+1 query problems
     if (visitIds.length > 0) {
       const { data: skus } = await supabase
         .from("store_visit_skus")
@@ -64,8 +77,13 @@ export async function getStoreVisits(): Promise<StoreVisitRow[]> {
   }
 }
 
+/**
+ * Fetches the full dossier for a single physical visit.
+ * Used for detailed management auditing and field reports.
+ */
 export async function getVisitReport(id: string): Promise<VisitReportDetail | null> {
   try {
+    // 1. Fetch visit metadata including salesman and customer identity
     const { data: visit, error } = await supabase
       .from("store_visits")
       .select("id, visit_date, notes, latitude, longitude, customers(store_name), users:salesman_id(full_name)")
@@ -75,6 +93,7 @@ export async function getVisitReport(id: string): Promise<VisitReportDetail | nu
     if (error) throw error;
     if (!visit) return null;
 
+    // 2. Fetch specific SKU notes recorded during this specific visit
     const { data: skus } = await supabase
       .from("store_visit_skus")
       .select("id, notes, product_variants:variant_id(name, sku)")

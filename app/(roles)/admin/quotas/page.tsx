@@ -5,7 +5,7 @@ import QuotaTable from "./quota-table";
 
 export default async function QuotasPage() {
   const currentYear = new Date().getFullYear();
-  
+
   try {
     const [quotas, summary] = await Promise.all([
       getQuotas({ year: currentYear }),

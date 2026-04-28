@@ -105,11 +105,10 @@ export default function SalesTransactionsPage() {
                       ₱{(tx.total_amount ?? 0).toLocaleString("en-PH", { minimumFractionDigits: 2 })}
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset ${
-                        tx.status === "completed" ? "bg-green-50 text-green-700 ring-green-600/20" :
-                        tx.status === "pending" ? "bg-yellow-50 text-yellow-700 ring-yellow-600/20" :
-                        "bg-gray-100 text-gray-700 ring-gray-300"
-                      } capitalize`}>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ring-1 ring-inset ${tx.status === "completed" ? "bg-green-50 text-green-700 ring-green-600/20" :
+                          tx.status === "pending" ? "bg-yellow-50 text-yellow-700 ring-yellow-600/20" :
+                            "bg-gray-100 text-gray-700 ring-gray-300"
+                        } capitalize`}>
                         {tx.status}
                       </span>
                     </TableCell>

@@ -5,6 +5,10 @@ import supabase from "@/lib/db";
 // TYPES
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Interface representing Key Performance Indicators for the Supervisor level.
+ * Focuses on team activity and pending approvals.
+ */
 export interface SupervisorKPIs {
   activeSalesmen: number;
   visitsToday: number;
@@ -16,6 +20,9 @@ export interface SupervisorKPIs {
   lowStockItems: number;
 }
 
+/**
+ * Interface representing a summary of an individual salesman's performance.
+ */
 export interface TeamSalesman {
   id: string;
   full_name: string;
@@ -28,14 +35,19 @@ export interface TeamSalesman {
 }
 
 // ══════════════════════════════════════════════════════════════
-// SUPERVISOR DASHBOARD
+// SUPERVISOR DASHBOARD LOGIC
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Aggregates high-level metrics for the Supervisor's landing page.
+ * Tracks field activity (visits), administrative backlog (callsheets), and stock health.
+ */
 export async function getSupervisorKPIs(): Promise<SupervisorKPIs> {
   const today = new Date().toISOString().split("T")[0];
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
   try {
+    // Perform parallel lookups for all required supervisor metrics
     const [
       activeSalesmen,
       visitsToday,
@@ -44,11 +56,17 @@ export async function getSupervisorKPIs(): Promise<SupervisorKPIs> {
       salesData,
       lowStockItems,
     ] = await Promise.all([
+      // Count active field personnel
       supabase.from("users").select("*", { count: "exact", head: true }).eq("role_id", 3).eq("is_active", true),
+      // Count visits performed by the team today
       supabase.from("store_visits").select("*", { count: "exact", head: true }).gte("visit_date", today),
+      // Count callsheets waiting for supervisor review
       supabase.from("callsheets").select("*", { count: "exact", head: true }).eq("status", "submitted"),
+      // Count orders waiting for approval
       supabase.from("sales_transactions").select("*", { count: "exact", head: true }).eq("status", "pending"),
+      // Aggregate total team sales volume for the current month
       supabase.from("sales_transactions").select("total_amount").gte("created_at", monthStart),
+      // Check for inventory shortages
       supabase.from("inventory_ledger").select("*", { count: "exact", head: true }).lt("balance", 10),
     ]);
 
@@ -75,17 +93,22 @@ export async function getSupervisorKPIs(): Promise<SupervisorKPIs> {
 // TEAM MONITORING
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Fetches a list of all salesmen under supervision with their specific performance metrics.
+ */
 export async function getTeamSalesmen(): Promise<TeamSalesman[]> {
   const today = new Date().toISOString().split("T")[0];
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
   try {
+    // 1. Get the list of all users with the salesman role
     const { data: salesmen } = await supabase
       .from("users")
       .select("id, full_name, email, status, is_active")
       .eq("role_id", 3)
       .order("full_name");
 
+    // 2. Fetch specific activity counts for EACH salesman in parallel
     const results: TeamSalesman[] = await Promise.all(
       (salesmen || []).map(async (s: any) => {
         const [visitsToday, totalCallsheets, confirmedBookings, salesData] = await Promise.all([
@@ -115,6 +138,10 @@ export async function getTeamSalesmen(): Promise<TeamSalesman[]> {
   }
 }
 
+/**
+ * Retrieves a comprehensive activity dossier for a single salesman.
+ * Includes profile info, recent visits, callsheets, and bookings.
+ */
 export async function getSalesmanDetail(salesmanId: string) {
   try {
     const [profileRes, visitsRes, callsheetsRes, bookingsRes] = await Promise.all([
@@ -140,6 +167,9 @@ export async function getSalesmanDetail(salesmanId: string) {
 // CUSTOMERS MONITORING
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Fetches all active customers with their assigned salesman's name.
+ */
 export async function getTeamCustomers() {
   try {
     const { data, error } = await supabase
@@ -162,6 +192,9 @@ export async function getTeamCustomers() {
 // VISITS MONITORING
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Retrieves a unified log of all field visits performed by the team.
+ */
 export async function getTeamVisits() {
   try {
     const { data, error } = await supabase
@@ -182,11 +215,16 @@ export async function getTeamVisits() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// CALLSHEETS
+// CALLSHEET MANAGEMENT
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Fetches the full content of a callsheet for detailed auditing.
+ * Navigates relational joins to show store, salesman, and specific line items.
+ */
 export async function getCallsheetDetail(callsheetId: string) {
   try {
+    // 1. Fetch callsheet header
     const { data: callsheet } = await supabase
       .from("callsheets")
       .select("*, customers(store_name, address), users:salesman_id(full_name, email)")
@@ -195,6 +233,7 @@ export async function getCallsheetDetail(callsheetId: string) {
 
     if (!callsheet) return null;
 
+    // 2. Fetch inventory items reported in this callsheet
     const { data: items } = await supabase
       .from("callsheet_items")
       .select("*, products(name, total_packaging, net_weight)")
@@ -214,6 +253,10 @@ export async function getCallsheetDetail(callsheetId: string) {
   }
 }
 
+/**
+ * Allows a supervisor to Approve or Reject a submitted callsheet.
+ * Rejections usually require an accompanying 'supervisorNote' for feedback.
+ */
 export async function reviewCallsheet(callsheetId: string, status: "approved" | "rejected", supervisorNote?: string) {
   try {
     const { error } = await supabase
@@ -232,8 +275,13 @@ export async function reviewCallsheet(callsheetId: string, status: "approved" | 
 // BUYER REQUESTS MONITORING
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Retrieves all new store/buyer requests initiated by the sales team.
+ * Includes nested line items for requested products.
+ */
 export async function getTeamBuyerRequests() {
   try {
+    // 1. Fetch request headers
     const { data: requests } = await supabase
       .from("buyer_requests")
       .select("*, customers(store_name), users:salesman_id(full_name)")
@@ -243,6 +291,7 @@ export async function getTeamBuyerRequests() {
     const requestIds = (requests || []).map((r: any) => r.id);
     let itemsMap = new Map<string, any[]>();
 
+    // 2. Efficiently batch fetch all related request items
     if (requestIds.length > 0) {
       const { data: items } = await supabase
         .from("buyer_request_items")
@@ -271,6 +320,9 @@ export async function getTeamBuyerRequests() {
 // BOOKINGS / ORDERS MONITORING
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Retrieves a unified view of all sales transactions for supervisor oversight.
+ */
 export async function getTeamBookings() {
   try {
     const { data, error } = await supabase
@@ -294,8 +346,13 @@ export async function getTeamBookings() {
 // INVENTORY IMPACT VIEW
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Aggregates inventory health data for supervisor review.
+ * Tracks critical stock shortages and recent warehouse movements.
+ */
 export async function getInventoryImpact() {
   try {
+    // 1. Find items that are dangerously low
     const { data: lowStock } = await supabase
       .from("inventory_ledger")
       .select("*, product_variants:product_variant_id(name, sku, products:product_id(name))")
@@ -303,6 +360,7 @@ export async function getInventoryImpact() {
       .order("balance", { ascending: true })
       .limit(20);
 
+    // 2. Log recent stock changes
     const { data: recentMovements } = await supabase
       .from("inventory_ledger")
       .select("*, product_variants:product_variant_id(name, sku, products:product_id(name))")
@@ -330,9 +388,13 @@ export async function getInventoryImpact() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// RECENT ACTIVITY (for dashboard feed)
+// RECENT ACTIVITY FEED
 // ══════════════════════════════════════════════════════════════
 
+/**
+ * Aggregates a live "Activity Feed" for the supervisor dashboard.
+ * Combines recent visits, callsheets, and buyer requests into a single snapshot.
+ */
 export async function getRecentTeamActivity() {
   try {
     const [visitsRes, callsheetsRes, requestsRes] = await Promise.all([

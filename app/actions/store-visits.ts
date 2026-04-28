@@ -4,6 +4,9 @@ import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 import { notifyRole } from "@/app/actions/notifications";
 
+/**
+ * Interface representing the data required to log a physical salesman visit.
+ */
 export interface CreateStoreVisitInput {
   customer_id: string;
   salesman_id: string;
@@ -12,6 +15,12 @@ export interface CreateStoreVisitInput {
   longitude?: number;
 }
 
+/**
+ * Records a physical visit to a store.
+ * 1. Captures GPS coordinates for location verification (proof of presence).
+ * 2. Notifies the supervisor that a new visit has been logged.
+ * 3. Updates relevant dashboards.
+ */
 export async function createStoreVisit(input: CreateStoreVisitInput) {
   try {
     const visitId = generateUUID();
@@ -27,7 +36,7 @@ export async function createStoreVisit(input: CreateStoreVisitInput) {
 
     if (error) throw error;
 
-    // Trigger Notification for Supervisors
+    // Trigger Notification for Supervisors to monitor field activity
     await notifyRole("supervisor", "New Store Visit Logged", `A salesman has logged a new store visit.`);
 
     revalidatePath("/salesman/dashboard");
@@ -40,6 +49,9 @@ export async function createStoreVisit(input: CreateStoreVisitInput) {
   }
 }
 
+/**
+ * Retrieves all physical visit logs for a specific salesman.
+ */
 export async function getSalesmanVisits(salesmanId: string) {
   try {
     const { data, error } = await supabase

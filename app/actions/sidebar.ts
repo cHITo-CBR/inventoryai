@@ -1,6 +1,9 @@
 "use server";
 import supabase from "@/lib/db";
 
+/**
+ * Interface representing the numerical badges/counters shown in the navigation sidebar.
+ */
 export interface SidebarCounts {
   customers: number;
   products: number;
@@ -15,8 +18,13 @@ export interface SidebarCounts {
   [key: string]: number;
 }
 
+/**
+ * Fetches accurate record counts for all major entities in a single parallel operation.
+ * Used to populate the notification badges on the side navigation menu.
+ */
 export async function getSidebarCounts(): Promise<SidebarCounts> {
   try {
+    // Perform multiple "head" queries (metadata only) to get counts without fetching actual row data
     const [customers, products, sales, quotas, visits, buyerRequests] = await Promise.all([
       supabase.from("customers").select("*", { count: "exact", head: true }).eq("is_active", true).then(r => r.count || 0),
       supabase.from("products").select("*", { count: "exact", head: true }).eq("is_active", true).then(r => r.count || 0),

@@ -1,3 +1,4 @@
+// Enable dynamic rendering to ensure the product catalogue is always up-to-date
 export const dynamic = 'force-dynamic';
 
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -5,19 +6,23 @@ import { ProductCard } from "@/components/dashboard-cards";
 import { getProducts } from "@/app/actions/products";
 import { Search, Filter, Plus } from "lucide-react";
 
+// Server Component that manages and displays the product inventory
 export default async function ProductsPage() {
+  // Fetch the full product list from the database
   const products = await getProducts();
 
   return (
     <div className="flex flex-col gap-6 p-6">
+      {/* Page header with main title and description */}
       <DashboardHeader 
         title="Inventory" 
         subtitle="Browse and manage products" 
       />
 
-      {/* Search and Filters */}
+      {/* Search and Filters Section */}
       <div className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
+          {/* Search input with relative positioning for the icon */}
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
             <input 
@@ -26,18 +31,20 @@ export default async function ProductsPage() {
               className="w-full rounded-2xl border border-gray-100 bg-white py-4 pl-12 pr-4 text-sm font-medium outline-none focus:ring-2 focus:ring-green-100 shadow-sm"
             />
           </div>
+          {/* Filter button for more advanced sorting options */}
           <button className="flex h-[58px] w-[58px] items-center justify-center rounded-2xl bg-white border border-gray-100 text-gray-400 hover:text-gray-900 transition-colors shadow-sm">
             <Filter className="h-6 w-6" />
           </button>
         </div>
       </div>
 
-      {/* Categories Horizontal Scroll */}
+      {/* Categories Horizontal Scroll: Allows users to filter by product type */}
       <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide no-scrollbar -mx-6 px-6">
         {['All Items', 'Textiles', 'Electronics', 'Supplies', 'Others'].map((cat, i) => (
           <button 
             key={cat} 
             className={`shrink-0 px-5 py-2.5 rounded-full text-sm font-bold transition-all ${
+              // Highlight the first category (All Items) by default
               i === 0 ? 'bg-green-600 text-white shadow-md shadow-green-100' : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'
             }`}
           >
@@ -46,8 +53,9 @@ export default async function ProductsPage() {
         ))}
       </div>
 
-      {/* Products Grid */}
+      {/* Products Grid: Displays the list of available inventory items */}
       <div className="flex flex-col gap-4">
+        {/* Iterate over the products array and render a card for each item */}
         {products.map((product) => (
           <ProductCard 
             key={product.id}
@@ -60,6 +68,7 @@ export default async function ProductsPage() {
           />
         ))}
 
+        {/* Empty state UI if no products are found in the database */}
         {products.length === 0 && (
           <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100">
             <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 mb-4">
@@ -71,7 +80,7 @@ export default async function ProductsPage() {
         )}
       </div>
 
-      {/* Floating Action Button */}
+      {/* Floating Action Button: Quick access to add new products from any scroll position */}
       <button className="fixed bottom-[100px] right-6 h-14 w-14 rounded-full bg-green-600 text-white shadow-xl shadow-green-200 flex items-center justify-center hover:bg-green-700 active:scale-90 transition-all z-40">
         <Plus className="h-7 w-7" />
       </button>

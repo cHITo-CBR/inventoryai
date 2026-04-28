@@ -18,6 +18,7 @@ import { notifyRole } from "@/app/actions/notifications";
 
 /**
  * Represents the main Product object structure.
+ * Includes optional joined fields for related brands and categories.
  */
 export interface ProductRow {
   id: string;
@@ -71,10 +72,10 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
         brands(name),
         packaging_types(name, description)
       `)
-      .eq("is_archived", false) // Exclude items in the trash
+      .eq("is_archived", false) // Security: only fetch items NOT in the trash
       .order("created_at", { ascending: false });
 
-    // Apply search filter if provided
+    // Apply search filter if provided by the user
     if (search && search.trim()) {
       query = query.ilike("name", `%${search}%`);
     }
@@ -82,7 +83,7 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
     const { data: products, error } = await query;
     if (error) throw error;
 
-    // Format the result to flatten joined table values
+    // Format the result to flatten joined table values for easier UI mapping
     return (products || []).map((p: any) => ({
       ...p,
       category_name: p.product_categories?.name || null,
@@ -103,7 +104,7 @@ export async function getProducts(search?: string): Promise<ProductRow[]> {
  * Handles base64 image uploads to Cloudinary storage.
  */
 export async function createProduct(formData: FormData) {
-  // Extract data from the form
+  // Extract all relevant data from the standard HTML form
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const categoryId = formData.get("categoryId") as string;
@@ -114,7 +115,7 @@ export async function createProduct(formData: FormData) {
   const totalPackaging = formData.get("totalPackaging") as string;
   const netWeight = formData.get("netWeight") as string;
   const imageUrl = formData.get("imageUrl") as string;
-  const imageFile = formData.get("imageFile") as string; // Base64 string from client
+  const imageFile = formData.get("imageFile") as string; // Base64 encoded string from client
   const variantsJSON = formData.get("variants") as string;
 
   if (!name) return { error: "Product name is required." };
@@ -122,7 +123,7 @@ export async function createProduct(formData: FormData) {
   try {
     const productId = generateUUID();
 
-    // UPLOAD IMAGE TO CLOUDINARY
+    // 1. UPLOAD IMAGE TO CLOUDINARY if provided
     let finalImageUrl = imageUrl || null;
     if (imageFile && imageFile.startsWith("data:image")) {
       const uploadResult = await uploadImageFromBase64(imageFile, "products");
@@ -131,7 +132,7 @@ export async function createProduct(formData: FormData) {
       }
     }
 
-    // SAVING THE CORE PRODUCT
+    // 2. SAVE CORE PRODUCT RECORD
     const { error: insertError } = await supabase.from("products").insert({
       id: productId,
       name,
@@ -150,7 +151,7 @@ export async function createProduct(formData: FormData) {
 
     if (insertError) throw insertError;
 
-    // HANDLING VARIANTS
+    // 3. HANDLE VARIANTS SYNCING
     let variants: ProductVariantRow[] = [];
     try {
       if (variantsJSON) variants = JSON.parse(variantsJSON);
@@ -159,7 +160,7 @@ export async function createProduct(formData: FormData) {
     }
 
     if (variants.length > 0) {
-      // Create specialized variants if provided
+      // Create specific variants for different units/sizes
       const variantRows = variants.map((v) => ({
         id: generateUUID(),
         product_id: productId,
@@ -172,7 +173,7 @@ export async function createProduct(formData: FormData) {
       }));
       await supabase.from("product_variants").insert(variantRows);
     } else {
-      // Create a default 'Standard' variant if none were specified
+      // Fallback: Create a default 'Standard' variant if no specifics were given
       await supabase.from("product_variants").insert({
         id: generateUUID(),
         product_id: productId,
@@ -183,12 +184,12 @@ export async function createProduct(formData: FormData) {
       });
     }
 
-    // Refresh relevant pages to show the new product
+    // Refresh pages that display product data
     revalidatePath("/catalog/products");
     revalidatePath("/admin/catalog/products");
     revalidatePath("/notifications");
 
-    // Dynamic Notifications to Stakeholders
+    // Broadcoast system-wide notifications about the new inventory addition
     await notifyRole("supervisor", "New Product Added", `The product "${name}" has been added to the catalog.`);
     await notifyRole("salesman", "New Product Added", `The product "${name}" is now available for ordering.`);
 
@@ -199,7 +200,7 @@ export async function createProduct(formData: FormData) {
 }
 
 /**
- * Retrieves products that have been moved to the archives (Trash).
+ * Retrieves products that have been moved to the archives (soft-deleted).
  */
 export async function getArchivedProducts(): Promise<ProductRow[]> {
   try {
@@ -267,6 +268,7 @@ export async function restoreProduct(id: string) {
 
 /**
  * Updates an existing product's details and synchronizes its variants.
+ * Handles adding, updating, and removing variants based on the incoming form data.
  */
 export async function updateProduct(id: string, formData: FormData) {
   const name = formData.get("name") as string;
@@ -284,6 +286,7 @@ export async function updateProduct(id: string, formData: FormData) {
   if (!name) return { error: "Product name is required." };
 
   try {
+    // 1. UPDATE THE MASTER PRODUCT RECORD
     const { error: updateError } = await supabase
       .from("products")
       .update({
@@ -302,12 +305,12 @@ export async function updateProduct(id: string, formData: FormData) {
 
     if (updateError) throw updateError;
 
-    // SYNC VARIANTS (Add new, Update existing, Delete removed)
+    // 2. SYNC VARIANTS (Add new, Update existing, Delete removed)
     if (variantsJSON) {
       try {
         const variants: ProductVariantRow[] = JSON.parse(variantsJSON);
 
-        // Get existing variants to determine what to delete
+        // Fetch current variants to determine which ones need to be deleted
         const { data: existingVariants } = await supabase
           .from("product_variants")
           .select("id")
@@ -316,16 +319,16 @@ export async function updateProduct(id: string, formData: FormData) {
         const existingIds = (existingVariants || []).map((v: any) => v.id);
         const incomingIds = variants.map((v) => v.id).filter(Boolean) as string[];
 
-        // Delete variants that were removed from the UI
+        // Perform cleanup: Delete variants that were removed from the edit form
         const toDelete = existingIds.filter((eid: string) => !incomingIds.includes(eid));
         if (toDelete.length > 0) {
           await supabase.from("product_variants").delete().in("id", toDelete);
         }
 
-        // Add or Update variants
+        // Add new variants or update existing ones
         for (const v of variants) {
           if (v.id) {
-            // Update existing
+            // Update an existing variant entry
             await supabase
               .from("product_variants")
               .update({
@@ -339,7 +342,7 @@ export async function updateProduct(id: string, formData: FormData) {
               })
               .eq("id", v.id);
           } else {
-            // Insert new
+            // Register a brand new variant for this product
             await supabase.from("product_variants").insert({
               id: generateUUID(),
               product_id: id,
@@ -387,7 +390,7 @@ export async function getProductVariantsByProductId(productId: string): Promise<
 
 /**
  * Fetches all product variants across the entire catalog.
- * Useful for order forms where you select from a combined list.
+ * Useful for building order forms where you select from a combined master list.
  */
 export async function getProductVariants(): Promise<{ id: string; name: string; unit_price: number; sku: string | null; product_name?: string; total_cases?: number; packaging_price?: number }[]> {
   try {
@@ -399,11 +402,11 @@ export async function getProductVariants(): Promise<{ id: string; name: string; 
 
     if (error) throw error;
     
-    // Map the response to flatten the product relationship
+    // Map the relational response to flatten the product fields for the UI
     return (data || []).map((v: any) => ({
       id: v.id,
       name: v.name,
-      unit_price: v.products?.packaging_price || v.unit_price, // Use case price as default
+      unit_price: v.products?.packaging_price || v.unit_price, // Use case price if available
       sku: v.sku,
       product_name: v.products?.name || v.name,
       total_cases: v.products?.total_cases || 0

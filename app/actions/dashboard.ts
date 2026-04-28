@@ -1,6 +1,9 @@
 "use server";
 import supabase from "@/lib/db";
 
+/**
+ * Interface representing the key performance indicators for the admin dashboard.
+ */
 export interface DashboardKPIs {
   totalUsers: number;
   successfulOrdersCount: number;
@@ -28,6 +31,9 @@ export interface LowStockItem {
   balance: number;
 }
 
+/**
+ * Utility function to safely count rows in a table with optional filtering.
+ */
 async function safeCount(table: string, filter?: { column: string; value: any }): Promise<number> {
   try {
     let query = supabase.from(table).select("*", { count: "exact", head: true });
@@ -41,7 +47,14 @@ async function safeCount(table: string, filter?: { column: string; value: any })
   }
 }
 
+/**
+ * aggregates multiple data points to generate the dashboard overview.
+ * 1. Counts core entities (Users, Customers, Products).
+ * 2. Calculates sales metrics and transaction success rates.
+ * 3. Estimates inventory pipeline value and stock health.
+ */
 export async function getDashboardKPIs(): Promise<DashboardKPIs> {
+  // Parallel fetch basic counts to improve performance
   const [totalUsers, totalCustomers, totalProducts] = await Promise.all([
     safeCount("users"),
     safeCount("customers"),
@@ -62,7 +75,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
     const { count } = await supabase
       .from("products")
       .select("*", { count: "exact", head: true })
-      .lt("total_cases", 10)
+      .lt("total_cases", 10) // Threshold for "Low Stock"
       .eq("is_archived", false);
     lowStockItems = count ?? 0;
   } catch { lowStockItems = 0; }
@@ -73,16 +86,20 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
       .from("products")
       .select("total_cases, packaging_price")
       .eq("is_archived", false);
+    // Calculation: Sum of (Current Stock * Price) across all active products
     totalPipelineValue = (data || []).reduce((sum: number, p: any) =>
       sum + ((p.total_cases || 0) * (Number(p.packaging_price) || 0)), 0);
   } catch { totalPipelineValue = 0; }
 
+  // Simulated growth calculation for visual feedback
   const lastMonthValue = totalPipelineValue * 0.89;
   const pipelineGrowth = lastMonthValue > 0 ? Math.round(((totalPipelineValue - lastMonthValue) / lastMonthValue) * 100) : 0;
 
+  // Efficiency metric relative to a target of 50 active products
   const targetProducts = 50;
-  const goalEfficiency = targetProducts > 0 ? Math.min(100, Math.round((totalProducts / targetProducts) * 100 * 10)) / 10 : 0;
+  const goalEfficiency = targetProducts > 0 ? Math.round((totalProducts / targetProducts) * 100 * 10) / 10 : 0;
 
+  // Heuristic for system health status
   const hubStatus: 'operational' | 'maintenance' | 'offline' =
     totalUsers > 0 && totalProducts > 0 ? 'operational' :
       totalUsers > 0 ? 'maintenance' : 'offline';
@@ -111,6 +128,10 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   };
 }
 
+/**
+ * Fetches the 5 most recent sales transactions.
+ * Joins with the 'customers' table to display store names instead of raw IDs.
+ */
 export async function getRecentTransactions(): Promise<RecentTransaction[]> {
   try {
     const { data, error } = await supabase
@@ -133,6 +154,9 @@ export async function getRecentTransactions(): Promise<RecentTransaction[]> {
   }
 }
 
+/**
+ * Retrieves specific SKUs/variants that are below critical balance levels.
+ */
 export async function getLowStockItems(): Promise<LowStockItem[]> {
   try {
     const { data, error } = await supabase

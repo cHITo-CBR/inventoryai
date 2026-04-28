@@ -1,3 +1,4 @@
+// Force the page to fetch fresh data on every request
 export const dynamic = 'force-dynamic';
 
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -5,17 +6,20 @@ import { CustomerCard } from "@/components/dashboard-cards";
 import { getCustomers } from "@/app/actions/customers";
 import { Search, UserPlus } from "lucide-react";
 
+// Server Component that fetches and displays customer data
 export default async function CustomersPage() {
+  // Fetch customers list from the database via server action
   const customers = await getCustomers();
 
   return (
     <div className="flex flex-col gap-6 p-6">
+      {/* Page Title and Subtitle */}
       <DashboardHeader 
         title="Customers" 
         subtitle="Manage your buyer network" 
       />
 
-      {/* Search and Action Bar */}
+      {/* Search Bar and 'Add New' Action Button */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 group-focus-within:text-green-600 transition-colors" />
@@ -30,24 +34,28 @@ export default async function CustomersPage() {
         </button>
       </div>
 
-      {/* Stats Quick View */}
+      {/* Horizontal scrolling badges for quick statistics overview */}
       <div className="flex items-center gap-4 overflow-x-auto pb-4 scrollbar-hide no-scrollbar">
+        {/* Total Customers count */}
         <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-white border border-gray-50 px-5 py-3 shadow-sm">
           <div className="h-2 w-2 rounded-full bg-green-500"></div>
           <span className="text-sm font-bold text-gray-800">{customers.length} Total</span>
         </div>
+        {/* Weekly acquisition stat (Static for UI) */}
         <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-white border border-gray-50 px-5 py-3 shadow-sm">
           <div className="h-2 w-2 rounded-full bg-blue-500"></div>
           <span className="text-sm font-bold text-gray-800">4 New This Week</span>
         </div>
+        {/* Active communications stat (Static for UI) */}
         <div className="flex shrink-0 items-center gap-2 rounded-2xl bg-white border border-gray-50 px-5 py-3 shadow-sm">
           <div className="h-2 w-2 rounded-full bg-amber-500"></div>
           <span className="text-sm font-bold text-gray-800">12 Active Calls</span>
         </div>
       </div>
 
-      {/* Customers List */}
+      {/* List section for customer cards */}
       <div className="flex flex-col gap-4">
+        {/* Loop through each customer record and render a card */}
         {customers.map((customer) => (
           <CustomerCard 
             key={customer.id}
@@ -60,6 +68,7 @@ export default async function CustomersPage() {
           />
         ))}
         
+        {/* Show a placeholder if no customers exist in the database */}
         {customers.length === 0 && (
           <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-3xl border-2 border-dashed border-gray-100">
             <div className="h-16 w-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 mb-4">

@@ -1,3 +1,4 @@
+// Force dynamic rendering to ensure the dashboard reflects real-time data
 export const dynamic = 'force-dynamic';
 
 import { getSalesmanMobileData } from "@/app/actions/mobile-dashboard";
@@ -13,23 +14,29 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// The main landing screen of the dashboard
 export default async function OverviewPage() {
+  // Fetch dashboard data (user info, stats, targets)
   const data = await getSalesmanMobileData();
+  
+  // Get today's date and format it for the display banner
   const today = new Date();
   const dateFormatted = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F8F9FA]">
       
-      {/* Top Banner Section */}
+      {/* Top Banner Section: Displays user greeting, date, and sales target progress */}
       <section className="px-6 pt-6 pb-2">
         <div className="bg-[#0D5E2D] rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl shadow-green-900/40">
+          {/* Decorative background element */}
           <div className="absolute top-0 right-0 p-6 opacity-20">
             <svg width="120" height="120" viewBox="0 0 100 100" fill="none">
               <circle cx="50" cy="50" r="40" stroke="white" strokeWidth="2" strokeDasharray="10 10" />
             </svg>
           </div>
           
+          {/* Header row: User name and avatar */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex flex-col">
               <span className="text-[10px] font-black uppercase tracking-[3px] text-green-200/60 mb-1">Good Morning</span>
@@ -44,16 +51,18 @@ export default async function OverviewPage() {
             </div>
             
             <div className="relative">
+              {/* User profile picture */}
               <div className="h-20 w-20 rounded-3xl border-4 border-green-400/30 overflow-hidden shadow-xl bg-green-800">
                 <img src={data.user.avatar_url} alt="Profile" className="h-full w-full object-cover" />
               </div>
+              {/* Status badge (Zap icon) */}
               <div className="absolute -bottom-2 -right-2 h-8 w-8 rounded-2xl bg-white flex items-center justify-center text-green-900 shadow-lg">
                 <Zap className="h-4 w-4 fill-green-600 border-none text-green-600" />
               </div>
             </div>
           </div>
           
-          {/* Daily Sales Target Card Inside Banner */}
+          {/* Daily Sales Target Card: Shows a progress bar based on the daily goal */}
           <div className="bg-white/10 backdrop-blur-md rounded-3xl p-5 border border-white/10 shadow-inner">
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-3">
@@ -66,7 +75,9 @@ export default async function OverviewPage() {
               </div>
               <span className="text-sm font-black text-green-50">{data.targets.daily_sales_percentage}%</span>
             </div>
+            {/* Progress bar background */}
             <div className="w-full bg-black/20 h-2.5 rounded-full overflow-hidden">
+              {/* Animated progress bar fill */}
               <div 
                 className="bg-[#51CF9D] h-full rounded-full transition-all duration-1000 ease-out" 
                 style={{ width: `${data.targets.daily_sales_percentage}%` }}
@@ -76,7 +87,7 @@ export default async function OverviewPage() {
         </div>
       </section>
 
-      {/* Main Stats Summary */}
+      {/* Main Stats Summary: High-level numbers for Stores and Bookings */}
       <section className="px-6 py-6 border-none">
         <div className="grid grid-cols-3 gap-5">
           <StatMiniCard 
@@ -94,7 +105,7 @@ export default async function OverviewPage() {
         </div>
       </section>
 
-      {/* Quick Actions */}
+      {/* Quick Actions: Direct links to primary tasks */}
       <section className="px-6 py-4">
         <div className="flex items-center gap-2 mb-6">
           <Zap className="h-5 w-5 text-[#FD9F2A] fill-[#FD9F2A]" />
@@ -108,7 +119,7 @@ export default async function OverviewPage() {
         </div>
       </section>
 
-      {/* Recent Activity */}
+      {/* Recent Activity: Shows the user's latest actions or updates */}
       <section className="px-6 py-6 pb-24">
         <div className="bg-white rounded-[40px] p-8 shadow-md border border-gray-100 min-h-[300px]">
           <div className="flex items-center gap-3 mb-8">
@@ -116,6 +127,7 @@ export default async function OverviewPage() {
             <h2 className="text-lg font-black uppercase tracking-widest text-[#15273F]">Recent Activity</h2>
           </div>
           
+          {/* Placeholder for when no activity is found */}
           <div className="flex flex-col items-center justify-center py-12 gap-4 opacity-40">
              <div className="h-14 w-14 rounded-full bg-gray-900 text-white flex items-center justify-center font-black text-xl italic">
                 {data.user.full_name[0]}
@@ -128,14 +140,17 @@ export default async function OverviewPage() {
   );
 }
 
+// Sub-component for individual stat cards (Stores, Bookings, etc.)
 function StatMiniCard({ icon: Icon, value, label, color }: any) {
   return (
     <div className="bg-white rounded-[32px] p-6 flex flex-col items-center gap-4 shadow-xl shadow-gray-200/50 border border-gray-100/50 h-full">
+      {/* Icon with themed background color */}
       <div className={cn("h-12 w-12 rounded-[18px] flex items-center justify-center text-white shadow-lg", color)}>
         <Icon className="h-6 w-6" />
       </div>
       <div className="flex flex-col items-center gap-0">
         <span className="text-4xl font-black text-[#15273F] leading-none">{value}</span>
+        {/* Label with word-break formatting */}
         <span className="text-[10px] uppercase font-black tracking-widest text-[#A0AEC0] text-center mt-3 leading-tight leading-[12px] h-[24px] overflow-hidden">
           {label.split(' ').map((w: string, i: number) => <span key={i} className="block">{w}</span>)}
         </span>
@@ -144,9 +159,11 @@ function StatMiniCard({ icon: Icon, value, label, color }: any) {
   );
 }
 
+// Sub-component for prominent task buttons
 function ActionButton({ label, icon: Icon, color }: any) {
   return (
     <button className={cn("group relative overflow-hidden rounded-[28px] p-5 flex flex-col items-center gap-3 transition-all active:scale-95 shadow-lg", color)}>
+      {/* Visual effects: Hover overlays and blurs */}
       <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
       <div className="absolute -bottom-6 -right-6 h-16 w-16 bg-white/20 rounded-full blur-xl"></div>
       
@@ -160,6 +177,7 @@ function ActionButton({ label, icon: Icon, color }: any) {
   );
 }
 
+// Simple SVG icon for the "Recent Activity" section title
 function TrendingUpIcon(props: any) {
   return (
     <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor">

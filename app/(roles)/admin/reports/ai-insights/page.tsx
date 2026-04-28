@@ -20,7 +20,7 @@ export default function AIInsightsPage() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "ai",
-      text: "Hello! I'm your AI Assistant. You can ask me about sales, who our top salesman is today, or we can just chat normally. How can I help you?",
+      text: "Hello! I'm your AI Assistant for FlowStock. I can help you with sales summaries, stock levels, and performance reports. How can I assist you with the inventory today?",
       id: "initial",
     },
   ]);
@@ -143,7 +143,7 @@ export default function AIInsightsPage() {
           </div>
 
           <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar border-t border-gray-50">
-            {["How are our sales looking?", "Who is the top salesman?", "Any products running out of stock?", "What's up? Are you doing good?"].map((q) => (
+            {["How are our sales looking?", "Who is the top salesman?", "Any products running out of stock?", "What is our top selling product?"].map((q) => (
               <button
                 key={q}
                 onClick={() => setInput(q)}

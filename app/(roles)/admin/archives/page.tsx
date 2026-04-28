@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArchiveRestore, Inbox, Box, Tags, Scale, Layers, PackageOpen } from "lucide-react";
-import { 
+import {
   getArchivedCategories, getArchivedBrands, getArchivedUnits, getArchivedPackagingTypes,
   restoreCategory, restoreBrand, restoreUnit, restorePackagingType,
   type CategoryRow, type BrandRow, type UnitRow, type PackagingRow
@@ -45,13 +45,13 @@ export default function ArchivesPage() {
 
   async function handleRestore(id: number | string, type: typeof activeTab) {
     if (!confirm("Restore this item? It will be moved back to active status.")) return;
-    
+
     if (type === "products") await restoreProduct(id as string);
     else if (type === "categories") await restoreCategory(id as number);
     else if (type === "brands") await restoreBrand(id as number);
     else if (type === "units") await restoreUnit(id as number);
     else if (type === "packaging") await restorePackagingType(id as number);
-    
+
     loadData();
   }
 
@@ -75,11 +75,10 @@ export default function ArchivesPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.id
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                 ? "border-[#005914] text-[#005914]"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
+              }`}
           >
             <tab.icon className="w-4 h-4" />
             {tab.name}

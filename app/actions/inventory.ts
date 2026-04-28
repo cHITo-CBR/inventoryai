@@ -4,11 +4,17 @@ import { generateUUID } from "@/lib/db-helpers";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Interface representing inventory health indicators.
+ */
 export interface InventoryKPIs {
   totalSKUs: number;
   lowStockAlerts: number;
 }
 
+/**
+ * Interface representing a row in the inventory ledger (movement history).
+ */
 export interface MovementRow {
   id: string;
   quantity: number;
@@ -20,6 +26,11 @@ export interface MovementRow {
   users: { full_name: string } | null;
 }
 
+/**
+ * Fetches high-level inventory metrics.
+ * 1. Counts active product variants.
+ * 2. Counts ledger entries where balance is below critical levels.
+ */
 export async function getInventoryKPIs(): Promise<InventoryKPIs> {
   try {
     const { count: totalSKUs } = await supabase
@@ -41,6 +52,10 @@ export async function getInventoryKPIs(): Promise<InventoryKPIs> {
   }
 }
 
+/**
+ * Retrieves the 20 most recent inventory movements.
+ * Joins products, movement types (In/Out), and the user who recorded the change.
+ */
 export async function getRecentMovements(): Promise<MovementRow[]> {
   try {
     const { data, error } = await supabase
@@ -56,6 +71,7 @@ export async function getRecentMovements(): Promise<MovementRow[]> {
 
     if (error) throw error;
 
+    // Flatten and format the results for table display
     return (data || []).map((row: any) => ({
       id: row.id,
       quantity: row.quantity,
@@ -72,6 +88,9 @@ export async function getRecentMovements(): Promise<MovementRow[]> {
   }
 }
 
+/**
+ * Fetches available movement categories (e.g., 'Stock In', 'Stock Out', 'Damage').
+ */
 export async function getMovementTypes(): Promise<{ id: number; name: string; direction: string }[]> {
   try {
     const { data, error } = await supabase
@@ -93,6 +112,9 @@ export async function getMovementTypes(): Promise<{ id: number; name: string; di
   }
 }
 
+/**
+ * Retrieves a list of active products for use in adjustment forms.
+ */
 export async function getVariantsForAdjustment(): Promise<{ id: string; name: string; sku: string | null }[]> {
   try {
     const { data, error } = await supabase
@@ -114,6 +136,13 @@ export async function getVariantsForAdjustment(): Promise<{ id: string; name: st
   }
 }
 
+/**
+ * Records a new inventory adjustment entry.
+ * 1. Fetches the current balance for the product.
+ * 2. Calculates the new balance based on the movement direction (In/Out).
+ * 3. Inserts a record into the 'inventory_ledger' table.
+ * 4. Refreshes relevant cached pages.
+ */
 export async function createStockAdjustment(formData: FormData) {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
@@ -128,7 +157,7 @@ export async function createStockAdjustment(formData: FormData) {
   }
 
   try {
-    // Get current balance
+    // 1. Get the most recent balance for this product to calculate the next balance
     const { data: lastEntry } = await supabase
       .from("inventory_ledger")
       .select("balance")
@@ -139,7 +168,7 @@ export async function createStockAdjustment(formData: FormData) {
 
     const currentBalance = lastEntry?.balance ?? 0;
 
-    // Get movement type direction
+    // 2. Determine movement direction (add or subtract from balance)
     const { data: movType } = await supabase
       .from("inventory_movement_types")
       .select("direction")
@@ -151,6 +180,7 @@ export async function createStockAdjustment(formData: FormData) {
     const direction = movType.direction;
     const newBalance = direction === "out" ? currentBalance - quantity : currentBalance + quantity;
 
+    // 3. Insert the ledger entry
     const { error } = await supabase.from("inventory_ledger").insert({
       id: generateUUID(),
       product_id: variantId,
@@ -163,6 +193,7 @@ export async function createStockAdjustment(formData: FormData) {
 
     if (error) throw error;
 
+    // 4. Force a UI refresh on all inventory screens
     revalidatePath("/admin/inventory");
     revalidatePath("/supervisor/inventory");
     revalidatePath("/inventory");

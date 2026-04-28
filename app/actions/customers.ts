@@ -15,6 +15,7 @@ import { revalidatePath } from "next/cache";
 
 /**
  * Represents a customer/store record.
+ * Stores geographical and contact information for store locations.
  */
 export interface CustomerRow {
   id: string;
@@ -27,7 +28,7 @@ export interface CustomerRow {
   region: string | null;
   is_active: boolean;
   created_at: string;
-  salesman_name?: string | null; // Joined name of the assigned salesman
+  salesman_name?: string | null; // Joined name of the assigned salesman for display
 }
 
 /**
@@ -40,7 +41,7 @@ export interface CustomerStats {
 
 /**
  * Retrieves all active customers from the database.
- * Includes the name of the salesman assigned to each store.
+ * Uses a join with the 'users' table to fetch the assigned salesman's name.
  */
 export async function getCustomers(): Promise<CustomerRow[]> {
   try {
@@ -51,7 +52,7 @@ export async function getCustomers(): Promise<CustomerRow[]> {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    // Map joined user data to a flatter structure
+    // Map joined user data to a flatter structure for the UI components
     return (data || []).map((c: any) => ({
       ...c,
       salesman_name: c.users?.full_name || null,
@@ -64,6 +65,8 @@ export async function getCustomers(): Promise<CustomerRow[]> {
 
 /**
  * Calculates quick stats for the customers dashboard.
+ * 1. Total count of active stores.
+ * 2. Count of new stores added since the start of the current month.
  */
 export async function getCustomerStats(): Promise<CustomerStats> {
   try {
@@ -94,7 +97,7 @@ export async function getCustomerStats(): Promise<CustomerStats> {
 }
 
 /**
- * Creates a new customer profile.
+ * Creates a new customer profile from form data.
  */
 export async function createCustomer(formData: FormData) {
   const storeName = formData.get("storeName") as string;
@@ -123,6 +126,7 @@ export async function createCustomer(formData: FormData) {
     });
 
     if (error) throw error;
+    // Revalidate paths to refresh customer lists in both admin and salesman views
     revalidatePath("/customers");
     return { success: true };
   } catch (error: any) {
@@ -137,6 +141,7 @@ export async function getSalesmenForAssignment(): Promise<{ id: string; full_nam
   try {
     const { data, error } = await supabase
       .from("users")
+      // Filter for users with role_id 3 (Salesman) if needed, otherwise fetches all active users
       .select("id, full_name")
       .eq("is_active", true)
       .order("full_name");

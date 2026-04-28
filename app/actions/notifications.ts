@@ -3,15 +3,21 @@ import supabase from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Interface representing a system notification.
+ */
 export interface NotificationRow {
   id: string;
   title: string;
   message: string | null;
-  type: string;
+  type: string; // e.g., 'info', 'warning', 'success', 'error'
   is_read: boolean;
   created_at: string;
 }
 
+/**
+ * Fetches notifications for the currently logged-in user.
+ */
 export async function getNotifications(): Promise<NotificationRow[]> {
   try {
     const session = await getSession();
@@ -31,6 +37,10 @@ export async function getNotifications(): Promise<NotificationRow[]> {
   }
 }
 
+/**
+ * Counts the number of unread notifications for the current user.
+ * Used for badge counters in the UI.
+ */
 export async function getUnreadCount(): Promise<number> {
   try {
     const session = await getSession();
@@ -49,6 +59,9 @@ export async function getUnreadCount(): Promise<number> {
   }
 }
 
+/**
+ * Marks a specific notification as seen.
+ */
 export async function markNotificationRead(id: string) {
   try {
     const { error } = await supabase
@@ -57,6 +70,7 @@ export async function markNotificationRead(id: string) {
       .eq("id", id);
 
     if (error) throw error;
+    // Refresh the notifications list globally
     revalidatePath("/notifications");
     return { success: true };
   } catch (error: any) {
@@ -64,6 +78,9 @@ export async function markNotificationRead(id: string) {
   }
 }
 
+/**
+ * Marks all notifications for the current user as read in one batch.
+ */
 export async function markAllRead() {
   const session = await getSession();
   if (!session) return { error: "Unauthorized" };
@@ -84,7 +101,7 @@ export async function markAllRead() {
 }
 
 /**
- * Creates a notification for a specific user.
+ * Low-level utility to create a notification for a specific user ID.
  */
 export async function createNotification(
   userId: string,
@@ -107,7 +124,11 @@ export async function createNotification(
 }
 
 /**
- * Creates a notification for ALL active users assigned to a specific role.
+ * High-level utility to broadcast a notification to every user holding a specific role.
+ * Example: Notifying all 'admins' of a new registration.
+ * 1. Finds the internal ID for the role name.
+ * 2. Fetches all active users associated with that role.
+ * 3. Batch inserts notifications for all discovered users.
  */
 export async function notifyRole(
   roleName: "admin" | "supervisor" | "salesman",
@@ -116,7 +137,7 @@ export async function notifyRole(
   type: string = "info"
 ) {
   try {
-    // 1. Fetch the role ID
+    // 1. Fetch the numerical role ID from the names mapping
     const { data: role } = await supabase
       .from("roles")
       .select("id")
@@ -125,7 +146,7 @@ export async function notifyRole(
 
     if (!role) return;
 
-    // 2. Fetch all active users with this role
+    // 2. Fetch all active users with this role to build the distribution list
     const { data: users } = await supabase
       .from("users")
       .select("id")
@@ -134,7 +155,7 @@ export async function notifyRole(
 
     if (!users || users.length === 0) return;
 
-    // 3. Batch insert notifications for those users
+    // 3. Batch insert notifications for those users efficiently
     const payload = users.map((u) => ({
       user_id: u.id,
       title,

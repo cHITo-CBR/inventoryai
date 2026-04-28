@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache";
 // ── CATEGORIES MANAGEMENT ──────────────────────────────────────────────
 /**
  * CRUD operations for product categories.
- * Allows organizing products into high-level groups.
+ * Allows organizing products into high-level groups for easier filtering and reporting.
  */
 export interface CategoryRow {
   id: number;
@@ -25,6 +25,9 @@ export interface CategoryRow {
   is_archived: boolean;
 }
 
+/**
+ * Fetches all active (non-archived) categories sorted by name.
+ */
 export async function getCategories(): Promise<CategoryRow[]> {
   try {
     const { data, error } = await supabase
@@ -40,6 +43,9 @@ export async function getCategories(): Promise<CategoryRow[]> {
   }
 }
 
+/**
+ * Retrieves categories that have been soft-deleted/archived.
+ */
 export async function getArchivedCategories(): Promise<CategoryRow[]> {
   try {
     const { data, error } = await supabase
@@ -55,6 +61,9 @@ export async function getArchivedCategories(): Promise<CategoryRow[]> {
   }
 }
 
+/**
+ * Creates a new category entry from form data.
+ */
 export async function createCategory(formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -73,6 +82,9 @@ export async function createCategory(formData: FormData) {
   }
 }
 
+/**
+ * Updates the details of an existing category.
+ */
 export async function updateCategory(id: number, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -91,6 +103,9 @@ export async function updateCategory(id: number, formData: FormData) {
   }
 }
 
+/**
+ * Performs a soft-delete by setting the is_archived flag to true.
+ */
 export async function archiveCategory(id: number) {
   try {
     const { error } = await supabase
@@ -105,6 +120,9 @@ export async function archiveCategory(id: number) {
   }
 }
 
+/**
+ * Restores an archived category back to active status.
+ */
 export async function restoreCategory(id: number) {
   try {
     const { error } = await supabase
@@ -112,6 +130,7 @@ export async function restoreCategory(id: number) {
       .update({ is_archived: false })
       .eq("id", id);
     if (error) throw error;
+    // Revalidate multiple paths to ensure UI consistency across roles
     revalidatePath("/admin/catalog/categories");
     revalidatePath("/catalog/categories");
     revalidatePath("/admin/archives");
@@ -122,6 +141,9 @@ export async function restoreCategory(id: number) {
   }
 }
 
+/**
+ * Permanently deletes a category from the database.
+ */
 export async function deleteCategory(id: number) {
   try {
     const { error } = await supabase
@@ -138,8 +160,7 @@ export async function deleteCategory(id: number) {
 
 // ── BRANDS MANAGEMENT ──────────────────────────────────────────────────
 /**
- * CRUD operations for brands.
- * Allows filtering products by their manufacturer/brand name.
+ * CRUD operations for product brands.
  */
 export interface BrandRow {
   id: number;
@@ -149,6 +170,9 @@ export interface BrandRow {
   is_archived: boolean;
 }
 
+/**
+ * Fetches all active brands.
+ */
 export async function getBrands(): Promise<BrandRow[]> {
   try {
     const { data, error } = await supabase
@@ -164,6 +188,9 @@ export async function getBrands(): Promise<BrandRow[]> {
   }
 }
 
+/**
+ * Fetches archived brands.
+ */
 export async function getArchivedBrands(): Promise<BrandRow[]> {
   try {
     const { data, error } = await supabase
@@ -179,6 +206,9 @@ export async function getArchivedBrands(): Promise<BrandRow[]> {
   }
 }
 
+/**
+ * Creates a new brand record.
+ */
 export async function createBrand(formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -197,6 +227,9 @@ export async function createBrand(formData: FormData) {
   }
 }
 
+/**
+ * Updates an existing brand.
+ */
 export async function updateBrand(id: number, formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
@@ -215,6 +248,9 @@ export async function updateBrand(id: number, formData: FormData) {
   }
 }
 
+/**
+ * Archives a brand.
+ */
 export async function archiveBrand(id: number) {
   try {
     const { error } = await supabase
@@ -229,6 +265,9 @@ export async function archiveBrand(id: number) {
   }
 }
 
+/**
+ * Restores an archived brand.
+ */
 export async function restoreBrand(id: number) {
   try {
     const { error } = await supabase
@@ -246,6 +285,9 @@ export async function restoreBrand(id: number) {
   }
 }
 
+/**
+ * Permanently deletes a brand.
+ */
 export async function deleteBrand(id: number) {
   try {
     const { error } = await supabase.from("brands").delete().eq("id", id);
@@ -259,7 +301,7 @@ export async function deleteBrand(id: number) {
 
 // ── UNITS MANAGEMENT ──────────────────────────────────────────────────
 /**
- * CRUD operations for measurement units.
+ * CRUD operations for measurement units (e.g., Kg, Liter, Piece).
  */
 export interface UnitRow {
   id: number;
@@ -269,6 +311,9 @@ export interface UnitRow {
   is_archived: boolean;
 }
 
+/**
+ * Fetches all active measurement units.
+ */
 export async function getUnits(): Promise<UnitRow[]> {
   try {
     const { data, error } = await supabase
@@ -284,6 +329,9 @@ export async function getUnits(): Promise<UnitRow[]> {
   }
 }
 
+/**
+ * Fetches archived units.
+ */
 export async function getArchivedUnits(): Promise<UnitRow[]> {
   try {
     const { data, error } = await supabase
@@ -299,6 +347,9 @@ export async function getArchivedUnits(): Promise<UnitRow[]> {
   }
 }
 
+/**
+ * Creates a new measurement unit.
+ */
 export async function createUnit(formData: FormData) {
   const name = formData.get("name") as string;
   const abbreviation = formData.get("abbreviation") as string;
@@ -317,6 +368,9 @@ export async function createUnit(formData: FormData) {
   }
 }
 
+/**
+ * Updates an existing unit.
+ */
 export async function updateUnit(id: number, formData: FormData) {
   const name = formData.get("name") as string;
   const abbreviation = formData.get("abbreviation") as string;
@@ -335,6 +389,9 @@ export async function updateUnit(id: number, formData: FormData) {
   }
 }
 
+/**
+ * Archives a unit.
+ */
 export async function archiveUnit(id: number) {
   try {
     const { error } = await supabase
@@ -349,6 +406,9 @@ export async function archiveUnit(id: number) {
   }
 }
 
+/**
+ * Restores an archived unit.
+ */
 export async function restoreUnit(id: number) {
   try {
     const { error } = await supabase
@@ -366,6 +426,9 @@ export async function restoreUnit(id: number) {
   }
 }
 
+/**
+ * Permanently deletes a unit.
+ */
 export async function deleteUnit(id: number) {
   try {
     const { error } = await supabase.from("units").delete().eq("id", id);
@@ -379,7 +442,7 @@ export async function deleteUnit(id: number) {
 
 // ── PACKAGING TYPES MANAGEMENT ────────────────────────────────────────
 /**
- * CRUD operations for product packaging configurations.
+ * CRUD operations for product packaging configurations (e.g., Box of 12, Pouch).
  */
 export interface PackagingRow {
   id: number;
@@ -389,6 +452,9 @@ export interface PackagingRow {
   is_archived: boolean;
 }
 
+/**
+ * Fetches all active packaging types.
+ */
 export async function getPackagingTypes(): Promise<PackagingRow[]> {
   try {
     const { data, error } = await supabase
@@ -404,6 +470,9 @@ export async function getPackagingTypes(): Promise<PackagingRow[]> {
   }
 }
 
+/**
+ * Fetches archived packaging types.
+ */
 export async function getArchivedPackagingTypes(): Promise<PackagingRow[]> {
   try {
     const { data, error } = await supabase
@@ -419,6 +488,10 @@ export async function getArchivedPackagingTypes(): Promise<PackagingRow[]> {
   }
 }
 
+/**
+ * Creates a new packaging configuration.
+ * Handles parsing of formatted strings (e.g. 'Box - Large') into name/description.
+ */
 export async function createPackagingType(formData: FormData) {
   const packaging = formData.get("packaging") as string;
   const itemsPerCase = formData.get("itemsPerCase") as string;
@@ -426,7 +499,7 @@ export async function createPackagingType(formData: FormData) {
 
   let name = packaging;
   let description = null;
-  // Parse 'Name - Description' format if present
+  // Custom logic to handle concatenated name and description if provided via form
   if (packaging.includes(" - ")) {
     const parts = packaging.split(" - ");
     name = parts[0].trim();
@@ -447,6 +520,9 @@ export async function createPackagingType(formData: FormData) {
   }
 }
 
+/**
+ * Updates an existing packaging type configuration.
+ */
 export async function updatePackagingType(id: number, formData: FormData) {
   const packaging = formData.get("packaging") as string;
   const itemsPerCase = formData.get("itemsPerCase") as string;
@@ -477,6 +553,9 @@ export async function updatePackagingType(id: number, formData: FormData) {
   }
 }
 
+/**
+ * Archives a packaging type.
+ */
 export async function archivePackagingType(id: number) {
   try {
     const { error } = await supabase
@@ -491,6 +570,9 @@ export async function archivePackagingType(id: number) {
   }
 }
 
+/**
+ * Restores an archived packaging type.
+ */
 export async function restorePackagingType(id: number) {
   try {
     const { error } = await supabase
@@ -508,6 +590,9 @@ export async function restorePackagingType(id: number) {
   }
 }
 
+/**
+ * Permanently removes a packaging type configuration.
+ */
 export async function deletePackagingType(id: number) {
   try {
     const { error } = await supabase.from("packaging_types").delete().eq("id", id);

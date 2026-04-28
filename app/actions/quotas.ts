@@ -2,6 +2,10 @@
 import supabase from "@/lib/db";
 import { getCurrentUser } from "@/app/actions/auth";
 
+/**
+ * Interface representing a Salesman's performance quota.
+ * Tracks targets vs. achievements for a specific month/year.
+ */
 export interface QuotaRow {
   id: number;
   salesman_id: string;
@@ -25,6 +29,12 @@ export interface QuotaRow {
   updated_at: string | null;
 }
 
+/**
+ * Retrieves salesman quotas with real-time achievement calculations.
+ * 1. Fetches baseline quotas from a database view.
+ * 2. Cross-references with actual live transactions to provide up-to-the-minute data.
+ * 3. Calculates dynamic health statuses (e.g., 'On Track' based on the day of the month).
+ */
 export async function getQuotas(filters?: {
   year?: number;
   month?: number;
@@ -44,6 +54,7 @@ export async function getQuotas(filters?: {
     const { data, error } = await query;
     if (error) throw error;
 
+    // Time-based calculations for "On Track" logic
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
@@ -51,11 +62,11 @@ export async function getQuotas(filters?: {
     const elapsedPercentage = (currentDay / daysInMonth) * 100;
 
     const quotasWithLiveAchievements = await Promise.all((data || []).map(async (q: any) => {
-      // Calculate start and end date for the quota's month
+      // Logic to fetch LIVE transactional data for the specific quota period
       const startDate = new Date(q.year, q.month - 1, 1).toISOString();
       const endDate = new Date(q.year, q.month, 1).toISOString();
 
-      // Fetch live transactions for this salesman in this specific month
+      // Aggregate live sales volume
       const { data: txs } = await supabase
         .from("sales_transactions")
         .select("total_amount")
@@ -66,6 +77,7 @@ export async function getQuotas(filters?: {
 
       const liveAchievedAmount = (txs || []).reduce((sum, tx) => sum + (Number(tx.total_amount) || 0), 0);
       
+      // Aggregate live order counts
       const { count: liveAchievedOrders } = await supabase
         .from("sales_transactions")
         .select("*", { count: "exact", head: true })
@@ -80,11 +92,13 @@ export async function getQuotas(filters?: {
       
       const percentage = targetAmount > 0 ? (achievedAmount / targetAmount) * 100 : 0;
       
+      // Determine DYNAMIC status based on progress vs time elapsed in the month
       let dynamicStatus: "Achieved" | "On Track" | "Below Target" | "Pending" = "Pending";
       
       if (percentage >= 100) {
         dynamicStatus = "Achieved";
       } else if (targetAmount > 0 && q.month === currentMonth && q.year === currentYear) {
+        // "On Track" means they've achieved at least 90% of the proportionally expected target for the day
         dynamicStatus = (percentage >= (elapsedPercentage * 0.9)) ? "On Track" : "Below Target";
       } else if (q.status === "completed") {
         dynamicStatus = "Achieved";
@@ -109,6 +123,9 @@ export async function getQuotas(filters?: {
   }
 }
 
+/**
+ * Assigns a new monthly target to a salesman.
+ */
 export async function createQuota(formData: FormData) {
   const session = await getCurrentUser();
   if (!session) return { error: "Unauthorized" };
@@ -136,6 +153,7 @@ export async function createQuota(formData: FormData) {
     });
 
     if (error) {
+      // Handle unique constraint: a salesman can only have one quota record per month/year
       if (error.code === "23505") {
         return { error: "Quota already exists for this salesman in this month/year." };
       }
@@ -149,6 +167,9 @@ export async function createQuota(formData: FormData) {
   }
 }
 
+/**
+ * Updates the parameters or manual achievements of a quota record.
+ */
 export async function updateQuota(id: number, formData: FormData) {
   const session = await getCurrentUser();
   if (!session) return { error: "Unauthorized" };
@@ -183,6 +204,9 @@ export async function updateQuota(id: number, formData: FormData) {
   }
 }
 
+/**
+ * Generates an executive summary of quota progress for the CURRENT month.
+ */
 export async function getCurrentMonthQuotaSummary(): Promise<{
   total_quotas: number;
   completed_quotas: number;
@@ -204,13 +228,14 @@ export async function getCurrentMonthQuotaSummary(): Promise<{
 
     const records = data || [];
     
-    // Also fetch live achieved amounts for the summary to be accurate
+    // Time period for live transaction cross-referencing
     const startDate = new Date(currentYear, currentMonth - 1, 1).toISOString();
     const endDate = new Date(currentYear, currentMonth, 1).toISOString();
     
     let total_achieved = 0;
     let completed_quotas = 0;
     
+    // We iterate through each quota and verify live performance for accuracy
     for (const r of records) {
       const { data: txs } = await supabase
         .from("sales_transactions")
@@ -243,6 +268,9 @@ export async function getCurrentMonthQuotaSummary(): Promise<{
   }
 }
 
+/**
+ * Fetches users with the 'salesman' role for quota assignment selection.
+ */
 export async function getSalesmenForQuota(): Promise<{ id: string; name: string; email: string }[]> {
   try {
     const { data, error } = await supabase
@@ -261,7 +289,7 @@ export async function getSalesmenForQuota(): Promise<{ id: string; name: string;
     }));
   } catch (error) {
     console.error("Error fetching salesmen:", error);
-    // Fallback: query by role_id 3 directly
+    // Fallback: query by role_id 3 (Standard salesman ID) directly if the join fails
     try {
       const { data } = await supabase
         .from("users")
@@ -274,4 +302,4 @@ export async function getSalesmenForQuota(): Promise<{ id: string; name: string;
       return [];
     }
   }
-}
+}

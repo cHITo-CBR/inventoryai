@@ -4,6 +4,9 @@ import { generateUUID } from "@/lib/db-helpers";
 import { revalidatePath } from "next/cache";
 import { notifyRole, createNotification } from "@/app/actions/notifications";
 
+/**
+ * Interface representing a high-level summary of a sales transaction.
+ */
 export interface SalesTransactionRow {
   id: string;
   status: string;
@@ -14,6 +17,9 @@ export interface SalesTransactionRow {
   users: { full_name: string } | null;
 }
 
+/**
+ * Interface representing a specific item within a sale.
+ */
 export interface SaleDetailItem {
   id: string;
   quantity: number;
@@ -22,6 +28,9 @@ export interface SaleDetailItem {
   product_variants: { name: string; sku: string | null } | null;
 }
 
+/**
+ * Interface representing the complete expanded details of a sale.
+ */
 export interface SaleDetail {
   id: string;
   status: string;
@@ -33,6 +42,10 @@ export interface SaleDetail {
   sales_transaction_items: SaleDetailItem[];
 }
 
+/**
+ * Fetches all sales transactions in reverse chronological order.
+ * Joins with customers and users to provide descriptive names in the UI.
+ */
 export async function getSalesTransactions(): Promise<SalesTransactionRow[]> {
   try {
     const { data, error } = await supabase
@@ -55,8 +68,12 @@ export async function getSalesTransactions(): Promise<SalesTransactionRow[]> {
   }
 }
 
+/**
+ * Fetches expanded details for a specific transaction including its line items.
+ */
 export async function getSaleDetails(id: string): Promise<SaleDetail | null> {
   try {
+    // 1. Fetch the transaction header
     const { data: transaction, error } = await supabase
       .from("sales_transactions")
       .select("id, status, total_amount, notes, created_at, customers(store_name), users(full_name)")
@@ -66,6 +83,7 @@ export async function getSaleDetails(id: string): Promise<SaleDetail | null> {
     if (error) throw error;
     if (!transaction) return null;
 
+    // 2. Fetch all individual product items in this transaction
     const { data: items } = await supabase
       .from("sales_transaction_items")
       .select("id, quantity, unit_price, subtotal, product_variants(name, sku)")
@@ -89,6 +107,9 @@ export async function getSaleDetails(id: string): Promise<SaleDetail | null> {
   }
 }
 
+/**
+ * Generates a raw CSV string of all sales transactions for data export.
+ */
 export async function exportSalesCSV(): Promise<string> {
   try {
     const { data: rows } = await supabase
@@ -127,13 +148,21 @@ export interface CreateBookingInput {
   items: BookingItemInput[];
 }
 
+/**
+ * Core business logic for creating a new booking/order.
+ * 1. Calculates the total financial volume.
+ * 2. Creates the transaction header.
+ * 3. Records the individual items.
+ * 4. CRITICAL: Deducts stock levels IMMEDIATELY to prevent overselling.
+ * 5. Notifies admins and supervisors.
+ */
 export async function createBooking(input: CreateBookingInput) {
   try {
     const { customer_id, salesman_id, notes, items } = input;
     const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
     const transactionId = generateUUID();
     
-    // 1. Create the sales transaction record
+    // 1. Register the high-level sale record
     const { error: txError } = await supabase.from("sales_transactions").insert({
       id: transactionId,
       customer_id,
@@ -144,7 +173,7 @@ export async function createBooking(input: CreateBookingInput) {
     });
     if (txError) throw txError;
 
-    // 2. Insert transaction items and immediately deduct inventory
+    // 2. Register line items and adjust physical inventory
     if (items.length > 0) {
       const itemRows = items.map((item) => ({
         id: generateUUID(),
@@ -158,10 +187,10 @@ export async function createBooking(input: CreateBookingInput) {
       const { error: itemsError } = await supabase.from("sales_transaction_items").insert(itemRows);
       if (itemsError) throw itemsError;
 
-      // INVENTORY REDUCTION LOGIC (IMMEDIATE)
-      console.log(`[Inventory] Deducting stock for new booking ${transactionId}`);
+      // INVENTORY REDUCTION LOGIC
+      // We process each item and update the master product case count
       for (const item of items) {
-        // A. Find product ID for this variant
+        // Find which product this specific variant belongs to
         const { data: variant, error: vError } = await supabase
           .from("product_variants")
           .select("product_id")
@@ -170,7 +199,7 @@ export async function createBooking(input: CreateBookingInput) {
 
         if (vError || !variant) continue;
 
-        // B. Get current stock
+        // Fetch current physical case count
         const { data: product, error: pError } = await supabase
           .from("products")
           .select("total_cases")
@@ -179,7 +208,7 @@ export async function createBooking(input: CreateBookingInput) {
 
         if (pError || !product) continue;
 
-        // C. Subtract and update
+        // Perform the subtraction and save back to the DB
         const currentCases = product.total_cases || 0;
         const newCases = currentCases - item.quantity;
         
@@ -190,11 +219,11 @@ export async function createBooking(input: CreateBookingInput) {
       }
     }
 
-    // 3. Dispatch Notifications
-    await notifyRole("admin", "New Order Created", `A new order has been placed by Salesman.`);
-    await notifyRole("supervisor", "New Order Created", `A new order has been placed by Salesman.`);
+    // 3. Broadcast notifications to management
+    await notifyRole("admin", "New Order Created", `A new order has been placed.`);
+    await notifyRole("supervisor", "New Order Created", `A new order has been placed.`);
 
-    // 4. Clear caches for everyone
+    // 4. Force global cache invalidation for all related dashboards
     revalidatePath("/salesman/dashboard");
     revalidatePath("/bookings");
     revalidatePath("/notifications");
@@ -212,7 +241,9 @@ export async function createBooking(input: CreateBookingInput) {
   }
 }
 
-
+/**
+ * Retrieves all bookings with expanded relationships for the administration panel.
+ */
 export async function getAllBookings() {
   try {
     const { data: transactions } = await supabase
@@ -228,6 +259,7 @@ export async function getAllBookings() {
       .select("*, product_variants(name, sku)")
       .in("transaction_id", transactionIds);
 
+    // Map items to their respective transactions efficiently
     const itemsMap = new Map<string, any[]>();
     for (const item of (items || [])) {
       if (!itemsMap.has(item.transaction_id)) itemsMap.set(item.transaction_id, []);
@@ -256,36 +288,30 @@ export async function getAllBookings() {
   }
 }
 
+/**
+ * Updates the lifecycle status of a booking (e.g., Pending -> Approved).
+ * INVENTORY RESTORATION: If an order is CANCELLED, this function adds back the stock.
+ */
 export async function updateBookingStatus(transactionId: string, status: string) {
   try {
-    console.log(`[Inventory] Updating transaction ${transactionId} to ${status}`);
-
-    // 1. Fetch current status to check transition (Prevents double deduction)
+    // 1. Verify current status before updating (prevents redundant processing)
     const { data: currentTx, error: fetchError } = await supabase
       .from("sales_transactions")
       .select("status, salesman_id")
       .eq("id", transactionId)
       .single();
 
-    if (fetchError) {
-      console.error("[Inventory] Failed to fetch current transaction status:", fetchError);
-      throw fetchError;
-    }
+    if (fetchError) throw fetchError;
 
-    console.log(`[Inventory] Current status is: ${currentTx?.status}`);
-
-    // 2. Perform the status update in the DB
+    // 2. Perform the database update
     const { error: updateError } = await supabase
       .from("sales_transactions")
       .update({ status })
       .eq("id", transactionId);
       
-    if (updateError) {
-      console.error("[Inventory] Failed to update transaction status:", updateError);
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
-    // -> Notify the Salesman!
+    // Notify the salesman about the status change
     if (currentTx?.salesman_id && currentTx.status !== status) {
       await createNotification(
         currentTx.salesman_id,
@@ -295,32 +321,26 @@ export async function updateBookingStatus(transactionId: string, status: string)
       );
     }
 
-
     /**
      * INVENTORY RESTORATION LOGIC
-     * Since inventory is now deducted immediately upon creation,
-     * we only need to act here if the order is CANCELLED.
+     * Since inventory is deducted immediately upon creation,
+     * we must "UNDO" that deduction if the order is officially CANCELLED.
      */
     const isNowCancelled = status.toLowerCase() === "cancelled";
     const wasAlreadyCancelled = currentTx?.status?.toLowerCase() === "cancelled";
 
     if (isNowCancelled && !wasAlreadyCancelled) {
-      console.log(`[Inventory] Status changed to CANCELLED. Restoring deduction...`);
-
-      // A. Fetch all items for this transaction
+      // Find all items associated with this cancelled sale
       const { data: items, error: itemsError } = await supabase
         .from("sales_transaction_items")
         .select("variant_id, quantity")
         .eq("transaction_id", transactionId);
 
-      if (itemsError) {
-        console.error("[Inventory] Failed to fetch transaction items:", itemsError);
-        throw itemsError;
-      }
+      if (itemsError) throw itemsError;
 
       if (items && items.length > 0) {
         for (const item of items) {
-          // B. Get the parent product_id from the variant
+          // Find parent product
           const { data: variant, error: vError } = await supabase
             .from("product_variants")
             .select("product_id")
@@ -329,7 +349,7 @@ export async function updateBookingStatus(transactionId: string, status: string)
 
           if (vError || !variant) continue;
 
-          // C. Get current stock
+          // Fetch current stock levels
           const { data: product, error: pError } = await supabase
             .from("products")
             .select("total_cases")
@@ -338,21 +358,19 @@ export async function updateBookingStatus(transactionId: string, status: string)
 
           if (pError || !product) continue;
 
-          // D. Add back to stock
+          // RESTORE stock by adding the quantity back
           const oldStock = product.total_cases || 0;
-          const newStock = oldStock + item.quantity; // <-- PLUS here!
+          const newStock = oldStock + item.quantity;
 
           await supabase
             .from("products")
             .update({ total_cases: newStock })
             .eq("id", variant.product_id);
-            
-          console.log(`[Inventory] Restored ${item.quantity} cases to product ${variant.product_id}.`);
         }
       }
     }
 
-    // 3. Clear all potential caches
+    // 3. Clear all related UI caches
     revalidatePath("/bookings");
     revalidatePath("/sales");
     revalidatePath("/notifications");
@@ -362,10 +380,9 @@ export async function updateBookingStatus(transactionId: string, status: string)
     revalidatePath("/admin/catalog/products");
     revalidatePath("/supervisor/catalog/products");
     
-    console.log(`[Inventory] Update process finished for ${transactionId}`);
     return { success: true };
   } catch (error: any) {
-    console.error("[Inventory] CRITICAL ERROR in updateBookingStatus:", error);
+    console.error("updateBookingStatus error:", error);
     return { success: false, error: error.message };
   }
 }

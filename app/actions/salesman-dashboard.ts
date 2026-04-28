@@ -1,6 +1,9 @@
 "use server";
 import supabase from "@/lib/db";
 
+/**
+ * Interface representing Key Performance Indicators (KPIs) for a specific Salesman.
+ */
 export interface SalesmanKPIs {
   todayVisits: number;
   pendingCallsheets: number;
@@ -20,48 +23,59 @@ export interface SalesmanKPIs {
   } | null;
 }
 
+/**
+ * Aggregates all relevant performance data for a salesman's dashboard.
+ * 1. Counts daily visits, draft callsheets, and active requests.
+ * 2. Fetches monthly sales achievements vs targets.
+ * 3. Dynamically calculates progress status (e.g., 'On Track' vs 'Below Target').
+ */
 export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
   try {
     const today = new Date().toISOString().split("T")[0];
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
 
+    // Defined time range for the current calendar month
     const startDate = new Date(currentYear, currentMonth - 1, 1).toISOString();
     const endDate = new Date(currentYear, currentMonth, 1).toISOString();
 
+    // Execute multiple database queries in parallel for maximum speed
     const [visits, pendingCS, submittedCS, buyerReqs, myMonthlyBookings, quotaRes, myMonthlySales, companyMonthlySales] = await Promise.all([
+      // Count field visits logged today
       supabase.from("store_visits").select("*", { count: "exact", head: true })
         .eq("salesman_id", userId).gte("visit_date", `${today}T00:00:00`),
+      // Count draft work (not yet submitted)
       supabase.from("callsheets").select("*", { count: "exact", head: true })
         .eq("salesman_id", userId).eq("status", "draft"),
+      // Count work finalized and submitted to supervisors
       supabase.from("callsheets").select("*", { count: "exact", head: true })
         .eq("salesman_id", userId).eq("status", "submitted"),
+      // Count pending new store/buyer requests
       supabase.from("buyer_requests").select("*", { count: "exact", head: true })
         .eq("salesman_id", userId).eq("status", "pending"),
-      // My successful bookings this month (including in-progress ones)
+      // Count sales transactions finalized this month
       supabase.from("sales_transactions").select("*", { count: "exact", head: true })
         .eq("salesman_id", userId).in("status", ["pending", "approved", "completed"])
         .gte("created_at", startDate).lt("created_at", endDate),
-      // My quota settings
+      // Fetch specific performance goals (Quotas)
       supabase.from("quota_report_view").select("target_amount, achieved_amount, target_orders, achieved_orders, month, year")
         .eq("salesman_id", userId).eq("month", currentMonth).eq("year", currentYear).maybeSingle(),
-      // My sales values this month
+      // Fetch raw transaction data for financial aggregation
       supabase.from("sales_transactions").select("total_amount")
         .eq("salesman_id", userId).in("status", ["pending", "approved", "completed"])
         .gte("created_at", startDate).lt("created_at", endDate),
-      // Company-wide sales this month for dynamic comparison
+      // Company context for dynamic targets if specific quota is missing
       supabase.from("sales_transactions").select("total_amount")
         .in("status", ["pending", "approved", "completed"])
         .gte("created_at", startDate).lt("created_at", endDate),
     ]);
 
-    // Financial Achievements
+    // Calculate total financial volume achieved by the salesman
     const myTotalAmount = (myMonthlySales.data || []).reduce((sum, tx) => sum + (Number(tx.total_amount) || 0), 0);
     const companyTotalAmount = (companyMonthlySales.data || []).reduce((sum, tx) => sum + (Number(tx.total_amount) || 0), 0);
 
-    // Target Logic: Search for the most relevant quota
+    // TARGET LOGIC: Priority 1: User-specific quota; Priority 2: Most recent past quota; Priority 3: Company average
     let quotaDataRes = quotaRes.data;
-    
     if (!quotaDataRes) {
       const { data: latestQuota } = await supabase
         .from("quota_report_view")
@@ -71,20 +85,18 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
         .order("month", { ascending: false })
         .limit(1)
         .maybeSingle();
-      
       quotaDataRes = latestQuota as typeof quotaDataRes;
     }
 
-    // Safe target amount extraction — inline check lets TypeScript narrow correctly
     const quotaTargetAmount = quotaDataRes ? Number(quotaDataRes.target_amount) : 0;
     const targetAmount = quotaTargetAmount > 0 ? quotaTargetAmount : companyTotalAmount;
     
-    // Percentage Logic
+    // Calculate progress percentage
     const calculatedPercentage = targetAmount > 0 
       ? Math.min(100, Math.round((myTotalAmount / targetAmount) * 100)) 
       : (myTotalAmount > 0 ? 100 : 0);
 
-    // Dynamic Status Logic
+    // DYNAMIC STATUS: Determines if the salesman is meeting expectations based on the day of the month
     const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     const currentDay = new Date().getDate();
     const elapsedPercentage = (currentDay / daysInMonth) * 100;
@@ -121,6 +133,9 @@ export async function getSalesmanKPIs(userId: string): Promise<SalesmanKPIs> {
   }
 }
 
+/**
+ * Retrieves the salesman's most recent physical visits and callsheet updates.
+ */
 export async function getSalesmanRecentActivity(userId: string) {
   try {
     const [visitsRes, callsheetsRes] = await Promise.all([

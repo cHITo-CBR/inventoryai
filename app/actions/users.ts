@@ -5,6 +5,9 @@ import { getSession } from "@/lib/session";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Interface representing a system user.
+ */
 export interface UserRow {
   id: string;
   full_name: string;
@@ -16,6 +19,10 @@ export interface UserRow {
   role_name?: string;
 }
 
+/**
+ * Fetches all users from the system with optional search and role filtering.
+ * Joins with the 'roles' table to provide human-readable role names.
+ */
 export async function getUsers(search?: string, roleFilter?: string): Promise<UserRow[]> {
   try {
     let query = supabase
@@ -23,6 +30,7 @@ export async function getUsers(search?: string, roleFilter?: string): Promise<Us
       .select("id, full_name, email, phone_number, status, is_active, created_at, roles(name)")
       .order("created_at", { ascending: false });
 
+    // Filter by specific role (e.g., 'salesman', 'admin')
     if (roleFilter && roleFilter !== "all") {
       const { data: role } = await supabase
         .from("roles")
@@ -34,6 +42,7 @@ export async function getUsers(search?: string, roleFilter?: string): Promise<Us
       }
     }
 
+    // Filter by name or email query
     if (search && search.trim()) {
       query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
     }
@@ -51,6 +60,9 @@ export async function getUsers(search?: string, roleFilter?: string): Promise<Us
   }
 }
 
+/**
+ * Retrieves all available user roles for selection in forms.
+ */
 export async function getRoles(): Promise<{ id: number; name: string }[]> {
   try {
     const { data, error } = await supabase
@@ -65,7 +77,12 @@ export async function getRoles(): Promise<{ id: number; name: string }[]> {
   }
 }
 
+/**
+ * Manually creates a new system user with encrypted credentials.
+ * Only accessible by administrators.
+ */
 export async function createUser(formData: FormData) {
+  // Security: Verify that the requester is an authorized Admin
   const session = await getSession();
   if (!session || session.user.role !== "admin") {
     return { error: "Unauthorized" };
@@ -82,6 +99,7 @@ export async function createUser(formData: FormData) {
   }
 
   try {
+    // Hash password before saving to the database for security compliance
     const passwordHash = await bcrypt.hash(password, 10);
     const userId = generateUUID();
 
@@ -92,7 +110,7 @@ export async function createUser(formData: FormData) {
       phone_number: phone || null,
       password_hash: passwordHash,
       role_id: parseInt(roleId),
-      status: "approved",
+      status: "approved", // Admin-created users are pre-approved
       is_active: true,
     });
 
